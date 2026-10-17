@@ -17,7 +17,7 @@
   --bg:#EBF9CB; --surface:#FFFFFF; --surface-2:#F3FADF; --fg:#0A0A0A; --muted:#59614C; --line:#DDEBC2;
   --primary:#0A0A0A; --on-primary:#C1F44F; --saffron:#C1F44F; --saffron-bg:#EEF6D6;
   --good:#1F7A3E; --good-bg:#DDF3D0; --warn:#8A5A00; --warn-bg:#FBEBCB; --bad:#B23A27; --bad-bg:#F8DDD7;
-  --c1:#0E0E0E; --c2:#7FB414; --c3:#5A6FCF; --c4:#B23A27;
+  --c1:#0E0E0E; --c2:#7FB414; --c3:#5A6FCF; --c4:#B23A27; --c5:#D9962B; --c6:#2F9C9E; --c7:#8B9180;
   --track:#FFFFFF;
   --ink:#0A0A0A; --ink-fg:#FFFFFF; --ink-muted:#A5A5A5; --ink-line:transparent;
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
@@ -28,13 +28,13 @@
   --bg:#0B0B0B; --surface:#161616; --surface-2:#222222; --fg:#F4F8E8; --muted:#A3AA96; --line:#2A2A2A;
   --primary:#C1F44F; --on-primary:#0B0B0B; --saffron:#C1F44F; --saffron-bg:#1F2612;
   --good:#8EDB8A; --good-bg:#16301B; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
-  --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --track:#2A2A2A;
+  --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --c5:#F0B45A; --c6:#6CC4C6; --c7:#8B9180; --track:#2A2A2A;
   --charcoal:#262626; --ink:#262626; --ink-line:transparent; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0B0B0B; --surface:#161616; --surface-2:#222222; --fg:#F4F8E8; --muted:#A3AA96; --line:#2A2A2A;
   --primary:#C1F44F; --on-primary:#0B0B0B; --saffron:#C1F44F; --saffron-bg:#1F2612;
   --good:#8EDB8A; --good-bg:#16301B; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
-  --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --track:#2A2A2A;
+  --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --c5:#F0B45A; --c6:#6CC4C6; --c7:#8B9180; --track:#2A2A2A;
   --charcoal:#262626; --ink:#262626; --ink-line:transparent; color-scheme:dark }
 
 *{box-sizing:border-box}
@@ -273,6 +273,8 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .range .lbl{position:absolute;top:22px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
 .src{font-size:12px;font-weight:600;color:var(--muted);margin:0}
 .src a{color:inherit;text-decoration:underline}
+.src .status{margin:0 4px 0 0}
+.tiplist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .plan{display:flex;gap:8px;list-style:none;margin:0;padding:0}
 .plan li{flex:1;background:var(--surface);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .plan small{font-size:11px;font-weight:600;color:var(--muted)}
@@ -337,7 +339,7 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 <div id="dbg" aria-label="Debug: switch page"></div>
 <button id="theme" type="button"></button>
 
-<script type="module">import { api } from "/src/api.ts"; window.fairfareApi = api;</script>
+<script type="module">import { api } from "/src/api.ts"; import * as shared from "@fairfare/shared"; window.fairfareApi = api; window.fairfareShared = shared; // shared = the same bargain rules the API uses</script>
 <script>
 /* ---------- data (sample estimates for the demo; verify before launch) ---------- */
 const RATES={GBP:21500,EUR:18500,USD:16300,IDR:1,AUD:10700,CAD:11800,AED:4400,SGD:12600,MYR:3800,INR:190,JPY:108,TRY:400,THB:480}; // IDR per 1 unit of that currency (approx.)
@@ -356,21 +358,28 @@ const DESTS=[
 const STYLES={local:{label:'Cheap & local',mult:1,who:'Locals usually pay'},mid:{label:'Mid-range',mult:1.8,who:'Mid-range places usually charge'},fancy:{label:'Fancy',mult:3.5,who:'Fancy places usually charge'}};
 const r5=x=>{const st=x>=100000?10000:x>=10000?5000:x>=1000?500:x>20?5:1;return Math.round(x/st)*st}; // round to a friendly number
 function rng(p){const m=STYLES[S.check.style].mult;return[r5(p.min*m),r5(p.max*m)]}
+// the one fixed category list (same as the API contract); never add another here
 const CATS={
   transport:{label:'Transport',color:'var(--c1)'},
   food:{label:'Food & drink',color:'var(--c2)'},
-  sim:{label:'SIM & data',color:'var(--c3)'},
-  shopping:{label:'Shopping',color:'var(--c4)'}};
+  activities:{label:'Activities',color:'var(--c3)'},
+  shopping:{label:'Shopping',color:'var(--c4)'},
+  stay:{label:'Stay',color:'var(--c5)'},
+  essentials:{label:'Essentials',color:'var(--c6)'},
+  other:{label:'Other',color:'var(--c7)'}};
+// anything old or unknown still shows: "sim" is essentials, the rest falls back to other
+const catKey=k=>k==='sim'?'essentials':CATS[k]?k:'other';
 const PRICES=[
-  {id:'taxi-airport',cat:'transport',name:'Taxi: airport to Seminyak',min:150000,max:250000,tip:'Use Grab or Gojek, or agree the price before you get in. Ask for the meter: "argo".'},
-  {id:'taxi-city',cat:'transport',name:'Short ride by Grab or Gojek',min:20000,max:50000,tip:'The app shows the price before you go. Street taxis often quote double.'},
-  {id:'tea',cat:'food',name:'Iced tea at a warung',min:5000,max:15000,tip:'Beach and tourist areas charge more. One street back is cheaper.'},
-  {id:'nasi',cat:'food',name:'Nasi goreng at a warung',min:25000,max:50000,tip:'Check the menu has prices on it before you sit down.'},
-  {id:'oj',cat:'food',name:'Fresh juice at a stall',min:15000,max:35000,tip:'Ask for no sugar syrup and no ice if you are unsure about the water.'},
-  {id:'water',cat:'food',name:'Water, 1.5L bottle',min:6000,max:12000,tip:'Minimarkets are cheapest. Beach kiosks often charge double.'},
-  {id:'sim',cat:'sim',name:'Tourist SIM with data',min:100000,max:200000,tip:'Buy at an official Telkomsel or XL shop. Bring your passport.'},
-  {id:'sarong',cat:'shopping',name:'Batik sarong at a market',min:50000,max:150000,tip:'Start at about half the first price and meet in the middle.'},
-  {id:'carving',cat:'shopping',name:'Small wooden carving',min:100000,max:250000,tip:'Check the finish and ask where it was made. Shop prices are often fixed.'}];
+  {id:'taxi-airport',cat:'transport',name:'Taxi: airport to Seminyak',min:150000,max:250000,tip:'Use Grab or Gojek, or agree the price before you get in. Ask for the meter: "argo".',b:'bargain'},
+  {id:'taxi-city',cat:'transport',name:'Short ride by Grab or Gojek',min:20000,max:50000,tip:'The app shows the price before you go. Street taxis often quote double.',b:'fixed'},
+  {id:'tea',cat:'food',name:'Iced tea at a warung',min:5000,max:15000,tip:'Beach and tourist areas charge more. One street back is cheaper.',b:'fixed'},
+  {id:'nasi',cat:'food',name:'Nasi goreng at a warung',min:25000,max:50000,tip:'Check the menu has prices on it before you sit down.',b:'ask'},
+  {id:'oj',cat:'food',name:'Fresh juice at a stall',min:15000,max:35000,tip:'Ask for no sugar syrup and no ice if you are unsure about the water.',b:'bargain'},
+  {id:'water',cat:'food',name:'Water, 1.5L bottle',min:6000,max:12000,tip:'Minimarkets are cheapest. Beach kiosks often charge double.',b:'fixed'},
+  {id:'sim',cat:'essentials',name:'Tourist SIM with data',min:100000,max:200000,tip:'Buy at an official Telkomsel or XL shop. Bring your passport.',b:'fixed'},
+  {id:'sarong',cat:'shopping',name:'Batik sarong at a market',min:50000,max:150000,tip:'Start at about half the first price and meet in the middle.',b:'bargain'},
+  {id:'massage',cat:'activities',name:'Balinese massage, 1 hour',min:100000,max:250000,tip:'Spas with a price list are fixed. For a street or beach massage, agree the price first and ask politely for a discount.',b:'ask'},
+  {id:'carving',cat:'shopping',name:'Small wooden carving',min:100000,max:250000,tip:'Check the finish and ask where it was made. Shop prices are often fixed.',b:'ask'}];
 
 /* ---------- state ---------- */
 const S={
@@ -444,10 +453,10 @@ const myOf=e=>e.shares[myId()]||0;
 const sharers=e=>Object.values(e.shares).filter(v=>v>0).length;
 // everyone who has joined, ticked by default in the split; person ids are the keys, never names
 const people=()=>T()?T().people.filter(p=>p.status==='joined').map(p=>({key:p.id,id:p.id,name:p.id===myId()?`${p.name} (Me)`:p.name})):[];
-const mapExpense=e=>({id:e.id,item:e.item,cat:e.category,amt:e.amount,shares:e.shares,paidBy:e.paidBy});
+const mapExpense=e=>({id:e.id,item:e.item,cat:catKey(e.category),amt:e.amount,shares:e.shares,paidBy:e.paidBy});
 // our built-in list first, then prices the API learned (researched items aren't in the built-in list)
 const item=id=>PRICES.find(p=>p.id===id)||S.extra[id];
-const learnItem=it=>{if(it&&!item(it.id))S.extra[it.id]={id:it.id,cat:it.category,name:it.name,min:it.min,max:it.max,tip:it.tip}};
+const learnItem=it=>{if(it&&!item(it.id))S.extra[it.id]={id:it.id,cat:catKey(it.category),name:it.name,min:it.min,max:it.max,tip:it.tip}};
 const domainOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return u}};
 let toastT;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
@@ -595,7 +604,7 @@ function homeView(){
 const SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
 const EXAMPLES=['Taxi from the airport to Seminyak at night, he wants 400000','Iced tea at a fancy beach club, 60000','Batik sarong at the market, 300000'];
 const STYLE_KEYS=[['fancy',/fancy|beach.?club|hotel|luxury|villa/],['mid',/mid|nice|sit.?down/]];
-const KEYS=[['taxi-airport',/airport/],['taxi-city',/taxi|cab|ride|grab|gojek/],['tea',/tea|teh/],['oj',/juice/],['water',/water/],['nasi',/nasi|warung|dinner|lunch|meal|food|restaurant/],['sim',/sim|data|telkomsel/],['sarong',/sarong|batik|scarf|shirt/],['carving',/carving|mask|wood|souvenir/]];
+const KEYS=[['taxi-airport',/airport/],['taxi-city',/taxi|cab|ride|grab|gojek/],['tea',/tea|teh/],['oj',/juice/],['water',/water/],['nasi',/nasi|warung|dinner|lunch|meal|food|restaurant/],['massage',/massage|spa\b/],['sim',/sim|data|telkomsel/],['sarong',/sarong|batik|scarf|shirt/],['carving',/carving|mask|wood|souvenir/]];
 function parseAsk(t){t=t.toLowerCase();const nums=t.match(/\d+(\.\d+)?/g);if(!nums)return null;
   const k=KEYS.find(([,re])=>re.test(t));if(!k)return null;const st=STYLE_KEYS.find(([,re])=>re.test(t));
   return{itemId:k[0],amount:Number(nums[nums.length-1]),style:st?st[0]:'local'}}
@@ -637,7 +646,13 @@ function calc(r){
   const ribu=Math.round(plan.openWith/1000);
   const tpl={local:`Wah, mahal banget! ${ribu} ribu saja, boleh?`,polite:`Maaf, bisa ${ribu} ribu saja, Pak?`,english:`Wow, that's very expensive! Just ${loc(plan.openWith)}, okay?`};
   const ph=ap&&ap.phrase&&/^id/.test(ap.phrase.lang||ap.phrase.localLang||'')?{local:ap.phrase.local||tpl.local,polite:ap.phrase.polite||tpl.polite,english:ap.phrase.english||tpl.english}:tpl;
-  return{c,p,a,v,mn,mx,target,plan,ph,advice:ap&&ap.advice||''}}
+  // how to handle this price here. The verdict is the same in every mode; only the action changes.
+  const sh=window.fairfareShared,asItem=q=>({id:q.id,city:'bali',category:q.cat,name:q.name,min:q.min,max:q.max,currency:'IDR',tip:q.tip||'',bargain:q.b});
+  const mode=ap&&ap.bargainMode||sh.resolveBargainMode({style:c.style,situation:r.said,itemDefault:p.b||sh.defaultBargain({category:p.cat})});
+  const alt=ap?ap.alternative:mode==='fixed'?sh.cheaperAlternative(asItem(p),c.style,[...PRICES,...Object.values(S.extra)].map(asItem)):undefined;
+  const tips=ap&&ap.tips&&ap.tips.length?ap.tips:sh.templateTips({category:p.cat},alt);
+  const askPh=ap&&mode==='ask'&&ap.phrase?ap.phrase:sh.askPhrase();
+  return{c,p,a,v,mn,mx,target,plan,ph,mode,tips,alt,askPh,advice:ap&&ap.advice||''}}
 
 const payForm=()=>{const c=S.check;return `<div class="sub">
       <label class="field">How much did you pay?<div class="prefix"><span style="font-size:12px">IDR</span><input id="p-amt" type="text" inputmode="numeric" autocomplete="off" style="padding-left:52px" data-bind="check.paidAmt" value="${(Number(c.paidAmt)||0)?Math.round(Number(c.paidAmt)).toLocaleString('en-GB'):''}" placeholder="0"></div></label>
@@ -663,17 +678,17 @@ function unknownView(){
 
 function resultView(){
   const r=S.check.result;if(!item(r.itemId))return unknownView();
-  const {c,p,a,v,mn,mx,target,plan,ph,advice}=calc(r), who=STYLES[c.style].who;
+  const {c,p,a,v,mn,mx,target,plan,ph,mode,tips,alt,askPh,advice}=calc(r), who=STYLES[c.style].who;
   const label={great:'Great deal',fair:'Fair price',high:'A bit high',tooHigh:'Too high'}[v];
   const hi=Math.max(a,mx)*1.15, pos=x=>Math.min(100,Math.max(0,x/hi*100));
-  const bargainable=v==='high'||v==='tooHigh';
-  const msg=advice||{great:`${who} ${rangeTxt(mn,mx)}. You're paying less.`,fair:`${who} ${rangeTxt(mn,mx)}. This is normal.`,
-    high:'',tooHigh:''}[v]; // for high prices the Start / Aim / Walk away numbers say it; only Gemini's own advice adds words
+  const bargainable=(v==='high'||v==='tooHigh')&&mode==='bargain'; // plan chips and the Bargain button are for bargain places only
+  const msg=advice||(mode==='bargain'?{great:`${who} ${rangeTxt(mn,mx)}. You're paying less.`,fair:`${who} ${rangeTxt(mn,mx)}. This is normal.`,
+    high:'',tooHigh:''}[v]:window.fairfareShared.templateAdvice(mode,v)); // bargain + high: the Start / Aim / Walk away numbers say it
   const planHtml=bargainable?`<ul class="plan" aria-label="Bargaining plan"><li><small>Start</small><b>${kTxt(plan.openWith)}</b></li><li><small>Aim</small><b>${kTxt(plan.aimFor)}</b></li><li><small>Walk away</small><b>${kTxt(plan.walkAwayAbove)}+</b></li></ul>`:'';
   const indo=ph.local, polite=ph.polite;
   // where the price came from: our own list, or the web (with tappable sources: domain name only, new tab)
   const web=r.api&&r.api.source==='web',links=(r.fresh&&r.sources&&r.sources.length?r.sources:(r.api&&r.api.sources)||[]).slice(0,3);
-  const srcHtml=`<p class="src">${web?(r.fresh?'🌐 Researched just now':'🌐 Researched from the web'):'Local data'}${web&&links.length?' · '+links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · '):''}</p>`;
+  const srcHtml=`<p class="src">${mode==='fixed'?'<span class="status">Fixed-price place</span> ':''}${web?(r.fresh?'🌐 Researched just now':'🌐 Researched from the web'):'Local data'}${web&&links.length?' · '+links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · '):''}</p>`;
   const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${loc(a)}`:esc(r.said);
   let next='';
   if(c.step==='choose'||c.step==='bargain') next=`
@@ -684,6 +699,15 @@ function resultView(){
       <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(indo)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button>
         <button class="btn btn-ghost" data-action="speak" data-lang="id-ID" data-text="${esc(polite)}">Polite version</button></div>
       ${c.realVoice?'':`<p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p>`}</div>`:''}
+    ${c.step==='choose'&&mode==='ask'&&v!=='great'?`<div class="say">
+      <p class="eyebrow">Ask politely</p>
+      <p class="phrase">${esc(askPh.local)}</p>
+      <p class="muted">"${esc(askPh.english)}"</p>
+      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(askPh.local)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button></div></div>`:''}
+    ${c.step==='choose'&&mode==='fixed'?`<div class="say">
+      <p class="eyebrow">Good to know</p>
+      <ul class="tiplist">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
+      ${alt?`<p class="muted">Cheaper nearby: ${esc(alt.name)}, usually ${rangeTxt(alt.min,alt.max)}</p>`:''}</div>`:''}
     <p class="q">${c.step==='bargain'?'Did it work?':'What do you want to do?'}</p>
     <div class="actions3">
       ${c.step==='choose'&&bargainable?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
@@ -855,7 +879,7 @@ const A={
   check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null,fresh:!!opts.fresh,sources:opts.sources||null};c.step='choose';c.scroll='new';
     if(!item(itemId)){c.paidAmt=amount;c.text='';render();scrollToEl('#check');return} // not in the database: Pay still works
     const k=calc(c.result);
-    c.paidAmt=(k.v==='high'||k.v==='tooHigh')?k.plan.aimFor:amount;c.paidCat=k.p.cat;c.text='';render();scrollToEl('#check')},
+    c.paidAmt=(k.v==='high'||k.v==='tooHigh')&&k.mode==='bargain'?k.plan.aimFor:amount;c.paidCat=k.p.cat;c.text='';render();scrollToEl('#check')},
   send(){sendText(S.check.text.trim(),'text',t=>t)},
   example(t){const c=S.check;c.text=EXAMPLES[+t.dataset.i];c.err='';render();const el=$('#c-ask');el&&el.focus()},
   // tap to record, tap again to stop (or it stops itself after 30s). The transcript lands in the input so you can check it, then Enter sends.
@@ -1047,7 +1071,7 @@ async function sendText(t,from,said){const c=S.check;
     pr=await window.fairfareApi.parse({city:'bali',text:t});
     parsed=true;
     if(pr.currency==='IDR'&&pr.confidence>=.5&&pr.itemId){
-      try{const ck=await window.fairfareApi.check({tripId:S.session?S.session.tripId:'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style,...(pr.situation?{situation:pr.situation}:{})});
+      try{const ck=await window.fairfareApi.check({tripId:S.session?S.session.tripId:'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style,...(pr.situation?{situation:pr.situation}:{}),...(pr.bargainMode?{bargainMode:pr.bargainMode}:{})});
         if(ck.currency==='IDR'){api=ck;learnItem(ck.item)}}catch(e){}
       if(api||item(pr.itemId))r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
     }

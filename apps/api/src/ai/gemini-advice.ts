@@ -7,13 +7,18 @@ const Reply = z.object({
   advice: z.string().min(1).max(400),
   plan: z.object({ openWith: z.number(), aimFor: z.number(), walkAwayAbove: z.number() }).optional(),
   phrase: z.object({ local: z.string().min(1), polite: z.string().optional(), english: z.string().min(1) }).optional(),
+  tips: z.array(z.string()).max(5).optional(),
 });
 
 const RULES = `You are FairFare, a friendly price coach for tourists in Bali. You are given FACTS about a price check that was already calculated.
 You explain it; you never change it. Never invent a price and never change the verdict.
 Write "advice": 1 to 2 short friendly sentences (under 30 words in total) using only the numbers you were given. Mention the situation when it matters (night fares are higher).
+FACTS include bargainMode. The verdict is the same in every mode; only the advice for what to do changes.
+bargainMode "bargain" (a market, stall, unmetered taxi): as below.
+bargainMode "ask": advice may suggest asking politely if there is a discount. Never write a plan or a phrase (the app has one).
+bargainMode "fixed" (menu restaurant, beach club, supermarket, Grab, metered taxi): the price is the price. NEVER suggest haggling, bargaining or negotiating. Write "tips": 2 to 3 short tips such as: check the bill for service charge and tax; use the app or the meter; ask for the menu with prices first; and, if FACTS include "alternative", mention that cheaper option with its price range exactly as given. No plan, no phrase.
 If the verdict is great: say it is a good deal. If fair: say it is normal here. Do not add a plan or a phrase.
-If the verdict is high or tooHigh, also write:
+If the verdict is high or tooHigh and bargainMode is "bargain", also write:
 - "plan": openWith (first offer, near the low end), aimFor (fair price to settle at), walkAwayAbove (most they should accept). All three MUST stay inside the usual range you were given.
   Night, late or rain: aim a little higher. Market or souvenir stall: open lower. Airport: mention the official counter or Grab as the alternative.
 - "phrase": what to say in Bahasa Indonesia ("local"), a polite version ("polite") and the English meaning ("english"). The phrase must name the openWith offer, written like "170 ribu".
@@ -27,6 +32,7 @@ export class GeminiAdvisor implements AdviceWriter {
       item: r.item.name, quotedAmount: ctx.amount, currency: r.currency, verdict: r.verdict,
       usualRange: r.range, target: r.target, percentOfDailyBudget: r.budget.pctOfDaily,
       situation: ctx.situation ?? "", style: ctx.style, city: ctx.city, tip: r.item.tip,
+      bargainMode: r.bargainMode ?? "bargain", ...(r.alternative ? { alternative: r.alternative } : {}),
     };
     const call = () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
       method: "POST", signal: AbortSignal.timeout(15000),
@@ -38,6 +44,7 @@ export class GeminiAdvisor implements AdviceWriter {
           type: "object", required: ["advice"], properties: {
             advice: { type: "string" },
             plan: { type: "object", required: ["openWith", "aimFor", "walkAwayAbove"], properties: { openWith: { type: "number" }, aimFor: { type: "number" }, walkAwayAbove: { type: "number" } } },
+            tips: { type: "array", items: { type: "string" } },
             phrase: { type: "object", required: ["local", "english"], properties: { local: { type: "string" }, polite: { type: "string" }, english: { type: "string" } } },
           } } },
       }),

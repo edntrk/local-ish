@@ -50,7 +50,7 @@ export interface AdviceWriter {
 
 /** What the researcher found for ONE item, before our own sanity checks. */
 export type ResearchedPrice = {
-  id: string; name: string; category: string; min: number; max: number; currency: string; tip: string; sources: string[];
+  id: string; name: string; category: string; min: number; max: number; currency: string; tip: string; sources: string[]; bargain?: string;
 };
 
 /** AI role (Gemini + Google Search): finds the typical local price range for an item we don't have yet. It is never told what the tourist was quoted. */

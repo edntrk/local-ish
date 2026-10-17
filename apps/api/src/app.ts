@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { ZodError, z } from "zod";
-import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, summarise } from "@fairfare/shared";
+import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, cheaperAlternative, summarise } from "@fairfare/shared";
 import type { AdviceWriter, AskParser, DataStore, PriceLearner, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
 import { UnknownItemError } from "./ai/gemini";
@@ -114,7 +114,9 @@ export function createApp({ data, voice, ai, advisor, learner, modes }: Deps) {
     const item = await data.getPrice(trip.city, body.itemId);
     if (!item) return res.status(404).json({ error: "We don't have a price for that item yet" });
     // the numbers and the verdict come from checkPrice; Gemini only explains them, and a template stands in if it fails
-    const result = checkPrice(trip, item, body.amount, body.style);
+    // the mode is decided in code: the item's usual mode, the situation can change it, fancy places and chains are never "bargain"
+    const alternative = cheaperAlternative(item, body.style, await data.listPrices(trip.city));
+    const result = checkPrice(trip, item, body.amount, body.style, { bargainMode: body.bargainMode, situation: body.situation, alternative });
     if (!advisor) return res.json(result);
     try {
       res.json(applyAdvice(result, await advisor.advise(result, { city: trip.city, amount: body.amount, style: body.style, situation: body.situation })));

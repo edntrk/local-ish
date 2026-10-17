@@ -4,7 +4,7 @@ import type { AskParser } from "../ports";
 const KEYS: [string, RegExp][] = [
   ["taxi-airport", /airport/], ["scooter", /scooter|motorbike|moped/], ["taxi-city", /taxi|cab|ride|grab|gojek/],
   ["tea", /tea/], ["oj", /juice/], ["water", /water/],
-  ["nasi", /nasi|warung|dinner|lunch|meal|food|restaurant/], ["sim", /\bsim\b|data/], ["sarong", /sarong|batik/], ["carving", /carving|wood/],
+  ["nasi", /nasi|warung|dinner|lunch|meal|food|restaurant/], ["sim", /\bsim\b|data/], ["sarong", /sarong|batik/], ["carving", /carving|wood/], ["massage", /massage|spa\b/],
 ];
 const STYLE: [ParsedAsk["style"], RegExp][] = [["fancy", /fancy|rooftop|hotel|luxury|resort|beach club/], ["mid", /mid|nice|sit.?down|caf[eé]/]];
 
@@ -46,7 +46,8 @@ export class MockAskParser implements AskParser {
     const key = KEYS.find(([id, re]) => re.test(t) && prices.some((p) => p.id === id));
     if (amount === null || !key) throw new ParseError('Add what it is and the price, like "iced tea at the beach, 30000".');
     const style = STYLE.find(([, re]) => re.test(t))?.[0] ?? "local";
-    return { itemId: key[0], amount, currency, style, confidence: 0.7 };
+    // the sentence itself is the situation, so words like "supermarket" or "Grab app" can make it a fixed-price place
+    return { itemId: key[0], amount, currency, style, situation: t.trim().slice(0, 120), confidence: 0.7 };
   }
 }
 

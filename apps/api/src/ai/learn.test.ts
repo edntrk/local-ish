@@ -6,7 +6,7 @@ import { createPriceLearner, isStale, slugify, validateResearch } from "./learn"
 
 const surf: ResearchedPrice = {
   id: "surf-lesson", name: "Beginner surf lesson", category: "other", min: 350000, max: 600000, currency: "IDR",
-  tip: "Ask if the board and rash vest are included.", sources: ["https://example.com/surf-prices", "https://example.org/canggu", "not a url"],
+  tip: "Ask if the board and rash vest are included.", bargain: "bargain", sources: ["https://example.com/surf-prices", "https://example.org/canggu", "not a url"],
 };
 const researcherOf = (found: ResearchedPrice | Error) => {
   const research = vi.fn(async () => { if (found instanceof Error) throw found; return found; });
@@ -16,9 +16,9 @@ const ask = { city: "bali", item: "surf lesson", category: "other", area: "Cangg
 afterEach(() => vi.restoreAllMocks());
 
 describe("sanity check", () => {
-  it("accepts a good answer: other becomes shopping, bad URLs are dropped, source is the first URL", () => {
+  it("accepts a good answer: the category stays as given (no other-to-shopping mapping), bad URLs are dropped, source is the first URL", () => {
     const v = validateResearch(surf);
-    expect(v.ok && v.item).toMatchObject({ id: "surf-lesson", category: "shopping", min: 350000, max: 600000, currency: "IDR", source: "https://example.com/surf-prices" });
+    expect(v.ok && v.item).toMatchObject({ id: "surf-lesson", category: "other", min: 350000, max: 600000, currency: "IDR", source: "https://example.com/surf-prices" });
     expect(v.ok && v.sources).toEqual(["https://example.com/surf-prices", "https://example.org/canggu"]);
   });
   it.each([
@@ -26,13 +26,27 @@ describe("sanity check", () => {
     ["min is zero", { min: 0 }],
     ["range over 50x", { min: 1000, max: 60000 }],
     ["not rupiah", { currency: "USD" }],
-    ["unknown category", { category: "weapons" }],
     ["no source URL", { sources: ["nope", "ftp://x.y/z"] }],
     ["name over 60 characters", { name: "x".repeat(61) }],
     ["empty name", { name: "  ", id: "" }],
     ["not a number", { min: Number.NaN }],
   ])("rejects: %s", (_why, patch) => {
     expect(validateResearch({ ...surf, ...patch }).ok).toBe(false);
+  });
+  it("categories: only the fixed list; old 'sim' is essentials; anything invented becomes other", () => {
+    const cat = (category: string) => { const v = validateResearch({ ...surf, category }); return v.ok ? v.item.category : "rejected"; };
+    for (const c of ["transport", "food", "activities", "shopping", "stay", "essentials", "other"]) expect(cat(c)).toBe(c);
+    expect(cat("sim")).toBe("essentials");
+    expect(cat("weapons")).toBe("other");
+    expect(cat("Activity")).toBe("other"); // close but not on the list: never a new category
+  });
+  it("the researched bargain mode is kept when valid, and ignored when odd (the category decides later)", () => {
+    const mode = (bargain?: string) => { const v = validateResearch({ ...surf, bargain }); return v.ok ? v.item.bargain : "rejected"; };
+    expect(mode("fixed")).toBe("fixed");
+    expect(mode("ask")).toBe("ask");
+    expect(mode("bargain")).toBe("bargain");
+    expect(mode("haggle-a-lot")).toBeUndefined();
+    expect(mode(undefined)).toBeUndefined();
   });
   it("slugs and freshness", () => {
     expect(slugify("Beginner Surf Lesson, Canggu!")).toBe("beginner-surf-lesson-canggu");
@@ -48,6 +62,7 @@ describe("the learner", () => {
     const data = new MockDataStore(), r = researcherOf(surf);
     const got = await createPriceLearner(data, r).learn(ask);
     expect(got).toMatchObject({ researched: true, sources: ["https://example.com/surf-prices", "https://example.org/canggu"] });
+    expect(got!.item.bargain).toBe("bargain"); // the researched mode is saved with the price
     expect(got!.item).toMatchObject({ id: "surf-lesson", city: "bali", origin: "web", source: "https://example.com/surf-prices", checkedOn: new Date().toISOString().slice(0, 10) });
     expect((await data.listPrices("bali")).some((p) => p.id === "surf-lesson")).toBe(true); // listPrices/getPrice return it
     expect(await data.getPrice("bali", "surf-lesson")).toMatchObject({ origin: "web" });
@@ -137,6 +152,21 @@ describe("Gemini search adapter", () => {
     vi.restoreAllMocks();
     reply("I could not find anything, sorry");
     await expect(new GeminiResearcher("k").research(q)).rejects.toThrow("no JSON");
+  });
+  it("the prompt lists the fixed categories and says to pick exactly one", async () => {
+    const spy = reply(JSON.stringify(surf));
+    await new GeminiResearcher("k").research(q);
+    const rules = JSON.parse(spy.mock.calls[0][1]!.body as string).systemInstruction.parts[0].text as string;
+    expect(rules).toContain("transport|food|activities|shopping|stay|essentials|other");
+    expect(rules).toContain("pick exactly ONE from this fixed list");
+    expect(rules).toContain('If you are unsure, use "other"');
+    expect(rules).not.toContain("sim|");
+  });
+  it("asks for a bargain mode and returns it", async () => {
+    const spy = reply(JSON.stringify({ ...surf, bargain: "bargain" }));
+    const out = await new GeminiResearcher("k").research(q);
+    expect(out.bargain).toBe("bargain");
+    expect(JSON.parse(spy.mock.calls[0][1]!.body as string).systemInstruction.parts[0].text).toContain('"bargain":"bargain|ask|fixed"');
   });
   it("extractJson finds the object inside prose", () => {
     expect(extractJson('blah {"a":1} blah')).toEqual({ a: 1 });

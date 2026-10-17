@@ -10,10 +10,26 @@ import { randomUUID } from "node:crypto";
 import type { Expense, NewExpense, PriceItem, Trip } from "@fairfare/shared";
 import type { DataStore } from "../ports";
 
+const CATS = "'transport','food','activities','shopping','stay','essentials','other'";
+/** Moves old rows to the fixed category list and re-creates the CHECK constraints. Safe to re-run; db/schema.sql has the same steps. */
+export const CATEGORY_MIGRATION = [
+  "alter table price_items drop constraint if exists price_items_category_check",
+  "alter table expenses drop constraint if exists expenses_category_check",
+  "update price_items set category = 'essentials' where category = 'sim'",
+  "update expenses set category = 'essentials' where category = 'sim'",
+  "update price_items set category = 'activities' where category in ('shopping','other') and (id ~* '(surf-lesson|massage)' or name ~* '(surf lesson|massage)')",
+  "update expenses set category = 'activities' where category in ('shopping','other') and item ~* '(surf lesson|massage)'",
+  `update price_items set category = 'other' where category not in (${CATS})`,
+  `update expenses set category = 'other' where category not in (${CATS})`,
+  `alter table price_items add constraint price_items_category_check check (category in (${CATS}))`,
+  `alter table expenses add constraint expenses_category_check check (category in (${CATS}))`,
+];
+
 const rowToPrice = (r: any): PriceItem => ({
   id: r.id, city: r.city, category: r.category, name: r.name, min: Number(r.min_price), max: Number(r.max_price),
   currency: r.currency, tip: r.tip, source: r.source ?? undefined, checkedOn: r.checked_on ? String(r.checked_on).slice(0, 10) : undefined,
   origin: r.origin === "web" ? "web" : "seed",
+  bargain: r.bargain ?? undefined,
 });
 
 export class TigerDataStore implements DataStore {
@@ -33,16 +49,21 @@ export class TigerDataStore implements DataStore {
   async init() {
     await this.pool.query("alter table price_items add column if not exists origin text not null default 'seed'");
     await this.pool.query("alter table trips add column if not exists group_budget_home numeric(12,2)");
+    await this.pool.query("alter table price_items add column if not exists bargain text check (bargain in ('bargain','ask','fixed'))");
+    // rows saved before the column existed: the two named in the brief get their usual mode, the rest fall back by category in code
+    await this.pool.query("update price_items set bargain = 'bargain' where bargain is null and id ~* 'surf-lesson'");
+    await this.pool.query("update price_items set bargain = 'ask' where bargain is null and id ~* 'massage'");
+    for (const sql of CATEGORY_MIGRATION) await this.pool.query(sql); // the fixed category list; safe to re-run
   }
   async addPriceItem(item: PriceItem) {
     // new slug: insert. Existing slug: seed rows are never touched; a web row is refreshed only when it is over 30 days old.
     await this.pool.query(
-      `insert into price_items (id, city, category, name, min_price, max_price, currency, tip, source, checked_on, origin)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'web')
+      `insert into price_items (id, city, category, name, min_price, max_price, currency, tip, source, checked_on, origin, bargain)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'web',$11)
        on conflict (city, id) do update set name = excluded.name, category = excluded.category, min_price = excluded.min_price, max_price = excluded.max_price,
-         tip = excluded.tip, source = excluded.source, checked_on = excluded.checked_on
+         tip = excluded.tip, source = excluded.source, checked_on = excluded.checked_on, bargain = excluded.bargain
        where price_items.origin = 'web' and price_items.checked_on < current_date - 30`,
-      [item.id, item.city, item.category, item.name, item.min, item.max, item.currency, item.tip, item.source ?? null, item.checkedOn ?? new Date().toISOString().slice(0, 10)],
+      [item.id, item.city, item.category, item.name, item.min, item.max, item.currency, item.tip, item.source ?? null, item.checkedOn ?? new Date().toISOString().slice(0, 10), item.bargain ?? null],
     );
     return (await this.getPrice(item.city, item.id))!;
   }

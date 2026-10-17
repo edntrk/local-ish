@@ -3,10 +3,9 @@
  * Unknown item -> research it -> check the answer in code -> save it with origin 'web' -> use it like any other price.
  * Only search results are ever saved. The tourist's own quote is never an input here.
  */
-import type { PriceItem } from "@fairfare/shared";
+import { CATEGORIES, type PriceItem } from "@fairfare/shared";
 import type { DataStore, LearnResult, PriceLearner, PriceResearcher, ResearchedPrice } from "../ports";
 
-const CATEGORIES = ["transport", "food", "sim", "shopping"] as const;
 export const STALE_DAYS = 30;
 
 export const slugify = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/, "");
@@ -26,16 +25,17 @@ export function validateResearch(r: ResearchedPrice): { ok: true; item: Omit<Pri
   if (!Number.isFinite(min) || !Number.isFinite(max) || !(min > 0) || !(min < max)) return { ok: false, reason: "range must satisfy 0 < min < max" };
   if (max > 50 * min) return { ok: false, reason: "range is too wide (max over 50x min)" };
   if (r.currency !== "IDR") return { ok: false, reason: `currency ${r.currency} is not IDR` };
-  // our four categories; "other" (a lesson, a tour) goes to the closest bucket, shopping, until the team adds a category
-  const category = r.category === "other" ? "shopping" : r.category;
-  if (!(CATEGORIES as readonly string[]).includes(category)) return { ok: false, reason: `unknown category ${r.category}` };
+  // the fixed list only: the old "sim" reads as essentials, and anything the model invents becomes "other" (never a new category)
+  const said = r.category === "sim" ? "essentials" : r.category;
+  const category = (CATEGORIES as readonly string[]).includes(said) ? (said as PriceItem["category"]) : "other";
   const sources = [...new Set(r.sources.filter(isUrl))].slice(0, 3);
   if (!sources.length) return { ok: false, reason: "no source URL" };
   const name = r.name.trim();
   if (!name || name.length > 60) return { ok: false, reason: "name is empty or over 60 characters" };
+  const bargain = r.bargain === "bargain" || r.bargain === "ask" || r.bargain === "fixed" ? r.bargain : undefined; // missing or odd: the category decides later
   const id = slugify(r.id || name);
   if (!id) return { ok: false, reason: "no usable slug" };
-  return { ok: true, sources, item: { id, category: category as PriceItem["category"], name, min, max, currency: "IDR", tip: r.tip.trim().slice(0, 200), source: sources[0] } };
+  return { ok: true, sources, item: { id, category, name, min, max, currency: "IDR", tip: r.tip.trim().slice(0, 200), source: sources[0], ...(bargain ? { bargain } : {}) } };
 }
 
 export function createPriceLearner(data: DataStore, researcher: PriceResearcher): PriceLearner {

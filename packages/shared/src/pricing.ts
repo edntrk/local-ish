@@ -2,10 +2,11 @@
  * Pure price-check logic. No network, no database, so it is easy to test.
  * Used by the API. The Interface can also use it for instant offline answers.
  */
-import type { CheckResult, Expense, Person, PriceItem, Style, Summary, Transfer, Trip, Verdict } from "./contracts";
+import { CATEGORIES, type BargainMode, type Category, type CheckResult, type Expense, type Person, type PriceItem, type Style, type Summary, type Transfer, type Trip, type Verdict } from "./contracts";
 
 type Plan = NonNullable<CheckResult["plan"]>;
 type Phrase = NonNullable<CheckResult["phrase"]>;
+type Alternative = NonNullable<CheckResult["alternative"]>;
 
 export const STYLE_MULTIPLIER: Record<Style, number> = { local: 1, mid: 1.8, fancy: 3.5 };
 
@@ -73,19 +74,75 @@ export function templatePhrase(openWith: number, currency: string): Phrase {
   };
 }
 
-const TEMPLATE_ADVICE: Record<Verdict, string> = {
-  great: "Good deal, go for it.",
-  fair: "That's normal here.",
-  high: "A bit high, try to bargain.",
-  tooHigh: "Way above normal, bargain or walk away.",
+/** The usual mode for an item when nothing else is known. Rows without one fall back to a sensible guess for their category. */
+export function defaultBargain(item: Pick<PriceItem, "bargain" | "category">): BargainMode {
+  if (item.bargain) return item.bargain;
+  return ({ transport: "bargain", shopping: "bargain", food: "ask", activities: "ask", other: "ask", stay: "fixed", essentials: "fixed" } as const)[item.category] ?? "ask";
+}
+
+// Words that mean a fixed-price place: a menu, a chain, an app, a meter, a supermarket or mall, a beach club, a hotel.
+const FIXED_SIGNAL = /\b(menu|restaurant|caf[eé]|beach ?club|rooftop|resort|hotel|supermarket|mall|chain|grab|gojek|app|meter(ed)?|indomaret|alfamart|circle k|starbucks|mcdonald'?s|kfc|official)\b/i;
+
+/**
+ * One rule for every mode decision. The item's usual mode is the start, the situation (as read by the AI) can override it,
+ * and a fancy place or a chain/app/menu situation is never "bargain": it is a fixed-price place.
+ */
+export function resolveBargainMode(o: { style?: Style; situation?: string; requested?: BargainMode; itemDefault: BargainMode }): BargainMode {
+  if (o.style === "fancy" || FIXED_SIGNAL.test(o.situation ?? "")) return "fixed";
+  return o.requested ?? o.itemDefault;
+}
+
+/** Shown only for "fixed" places: a cheaper way to get the same thing, from our own prices. */
+export function cheaperAlternative(item: PriceItem, style: Style, prices: PriceItem[]): Alternative | undefined {
+  // a fancy or mid-range price: the same thing at a local place costs the plain range
+  if (style !== "local") return { name: item.name, min: item.min, max: item.max, currency: item.currency };
+  const cheaper = prices
+    .filter((p) => p.id !== item.id && p.category === item.category && p.max < item.max && defaultBargain(p) !== "fixed")
+    .sort((a, b) => b.max - a.max)[0];
+  return cheaper && { name: cheaper.name, min: cheaper.min, max: cheaper.max, currency: cheaper.currency };
+}
+
+const ADVICE: Record<BargainMode, Record<Verdict, string>> = {
+  bargain: { great: "Good deal, go for it.", fair: "That's normal here.", high: "A bit high, try to bargain.", tooHigh: "Way above normal, bargain or walk away." },
+  ask: { great: "Good deal, go for it.", fair: "That's normal here.", high: "A bit high. It's fine to ask politely if there's a discount.", tooHigh: "Well above normal. Ask politely about a discount, or look elsewhere." },
+  fixed: { great: "Good price, and it's fixed, so you're set.", fair: "That's the normal price here.", high: "A bit above normal, and the price is fixed. Check the bill, or try a cheaper spot.", tooHigh: "Well above normal for a fixed price. Check the bill and consider somewhere cheaper." },
 };
+export const templateAdvice = (mode: BargainMode, verdict: Verdict) => ADVICE[mode][verdict];
+
+/** Politely asking for a discount (ask mode): one short phrase, no plan. */
+export const askPhrase = (): Phrase => ({ local: "Ada diskon?", polite: "Boleh kurang sedikit?", english: "Is there a discount?", lang: "id-ID", localLang: "id-ID" });
+
+const money = (n: number, currency: string) => (currency === "IDR" ? "Rp" + fmt(n) : `${fmt(n)} ${currency}`);
+
+/** Tips for a fixed-price place when Gemini isn't available. No haggling, ever. */
+export function templateTips(item: Pick<PriceItem, "category">, alternative?: Alternative): string[] {
+  const tips = [
+    item.category === "transport" ? "Use the app or the meter, not a street quote."
+      : item.category === "food" ? "Ask for the menu with prices before you order."
+      : "Ask what is included before you pay.",
+    "Check the bill for service charge and tax: many places add them on top.",
+  ];
+  if (alternative) tips.push(`A cheaper option nearby: ${alternative.name}, usually ${money(alternative.min, alternative.currency)} to ${money(alternative.max, alternative.currency)}.`);
+  return tips.slice(0, 3);
+}
+
+// anything about haggling is wrong for a fixed-price place; the code refuses it even if the AI writes it
+const HAGGLE = /barg|haggl|negotiat|knock .*off|lower the price|drop the price|counter.?offer|discount/i;
 
 /** What Gemini may add on top of a checked result. The numbers and the verdict stay as checkPrice made them. */
-export type AdviceDraft = { advice: string; plan?: Plan; phrase?: { local: string; polite?: string; english: string } };
+export type AdviceDraft = { advice: string; plan?: Plan; phrase?: { local: string; polite?: string; english: string }; tips?: string[] };
 
 export function applyAdvice(base: CheckResult, draft: AdviceDraft): CheckResult {
-  const out: CheckResult = { ...base, advice: draft.advice.trim() || base.advice };
-  if (!base.plan) return out; // great / fair: advice only
+  const mode = base.bargainMode ?? "bargain";
+  const words = draft.advice.trim();
+  // in a fixed-price place any talk of haggling is dropped and the template advice stays
+  const out: CheckResult = { ...base, advice: words && !(mode === "fixed" && HAGGLE.test(words)) ? words : base.advice };
+  if (mode === "fixed") {
+    const tips = (draft.tips ?? []).map((t) => t.trim()).filter((t) => t && t.length <= 200 && !HAGGLE.test(t)).slice(0, 3);
+    out.tips = tips.length >= 2 ? tips : base.tips; // fewer than two usable tips: use the template ones
+    return out;
+  }
+  if (!base.plan) return out; // great / fair, or "ask" mode: advice only
   const plan = draft.plan ? clampPlan(draft.plan, base.range, base.currency) : base.plan;
   out.plan = plan;
   // the phrase must say the same number as the plan; otherwise use the template so words and numbers agree
@@ -96,12 +153,18 @@ export function applyAdvice(base: CheckResult, draft: AdviceDraft): CheckResult 
   return out;
 }
 
-export function checkPrice(trip: Trip, item: PriceItem, amount: number, style: Style): CheckResult {
+export function checkPrice(
+  trip: Trip, item: PriceItem, amount: number, style: Style,
+  opts: { bargainMode?: BargainMode; situation?: string; alternative?: Alternative } = {},
+): CheckResult {
   const range = rangeFor(item, style);
   const verdict = verdictFor(amount, range);
   const target = roundMoney((range.min + range.max) / 2, item.currency);
   const daily = budgetLocal(trip) / tripDays(trip);
   const share = amount / trip.people.length;
+  // the verdict is the same in every mode; only the suggested action changes
+  const mode = resolveBargainMode({ style, situation: opts.situation, requested: opts.bargainMode, itemDefault: defaultBargain(item) });
+  const high = verdict === "high" || verdict === "tooHigh";
   return {
     verdict,
     item,
@@ -115,14 +178,17 @@ export function checkPrice(trip: Trip, item: PriceItem, amount: number, style: S
     },
     source: item.origin === "web" ? "web" : "local",
     ...(item.origin === "web" && item.source ? { sources: [item.source] } : {}),
-    advice: TEMPLATE_ADVICE[verdict],
-    // a plan and a phrase only make sense when the price is high
-    ...(verdict === "high" || verdict === "tooHigh"
+    bargainMode: mode,
+    advice: templateAdvice(mode, verdict),
+    // bargain: a plan and a Bahasa phrase when the price is high. ask: one polite phrase. fixed: tips, no haggling.
+    ...(mode === "bargain" && high
       ? (() => {
           const plan = templatePlan(range, target);
           return { plan, phrase: templatePhrase(plan.openWith, item.currency) };
         })()
       : {}),
+    ...(mode === "ask" && verdict !== "great" ? { phrase: askPhrase() } : {}),
+    ...(mode === "fixed" ? { tips: templateTips(item, opts.alternative), ...(opts.alternative ? { alternative: opts.alternative } : {}) } : {}),
   };
 }
 
@@ -179,7 +245,7 @@ const isShared = (e: Expense) => Object.values(e.shares).filter((v) => v > 0).le
 
 export function summarise(trip: Trip, expenses: Expense[], personId?: string): Summary {
   const me = viewerOf(trip, personId);
-  const byCategoryMine = { transport: 0, food: 0, sim: 0, shopping: 0 };
+  const byCategoryMine = Object.fromEntries(CATEGORIES.map((c) => [c, 0])) as Record<Category, number>;
   const byCategoryGroup = { ...byCategoryMine };
   let mySpent = 0;
   let groupSpent = 0;

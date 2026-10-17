@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GeminiAskParser } from "./gemini";
+import { GeminiAskParser, UnknownItemError } from "./gemini";
 import { SEED_PRICES } from "../data/seed-prices";
 import { MockAskParser, ParseError } from "./mock";
 import { withFallback } from "../fallback";
@@ -54,6 +54,37 @@ describe("Gemini price conversation", () => {
     expect(timeout).not.toBeInstanceOf(ParseError);
     expect(timeout.message).toContain("TimeoutError");
     expect(await new GeminiAskParser("").parse(ask, SEED_PRICES).catch((e) => e)).not.toBeInstanceOf(ParseError);
+  });
+  it("the parse prompt and schema use the fixed category list, with examples", async () => {
+    const spy = respond(answer);
+    await new GeminiAskParser("test-key").parse({ city: "bali", text: "taxi airport 400000" }, SEED_PRICES);
+    const body = JSON.parse(spy.mock.calls[0][1]!.body as string);
+    expect(body.generationConfig.responseJsonSchema.properties.category.enum).toEqual(["transport", "food", "activities", "shopping", "stay", "essentials", "other"]);
+    const prompt = body.systemInstruction.parts[0].text as string;
+    expect(prompt).toContain("pick exactly ONE from this fixed list");
+    expect(prompt).toContain("never invent a new one");
+    expect(prompt).toContain("surf lesson, massage");
+    expect(prompt).toContain("stay (hotel, villa, hostel)");
+  });
+  it("reads bargainMode from the situation and passes it on; the prompt explains the three modes", async () => {
+    const spy = respond({ ...answer, itemId: "nasi", amount: 150000, situation: "fancy restaurant with a menu", bargainMode: "fixed" });
+    const result = await new GeminiAskParser("test-key").parse({ city: "bali", text: "nasi goreng at a fancy restaurant 150000" }, SEED_PRICES);
+    expect(result).toMatchObject({ itemId: "nasi", bargainMode: "fixed", situation: "fancy restaurant with a menu" });
+    const body = JSON.parse(spy.mock.calls[0][1]!.body as string);
+    expect(body.generationConfig.responseJsonSchema.properties.bargainMode.enum).toEqual(["bargain", "ask", "fixed"]);
+    expect(body.generationConfig.responseJsonSchema.required).not.toContain("bargainMode"); // optional: the item's usual mode applies when the situation says nothing
+    const prompt = body.systemInstruction.parts[0].text as string;
+    expect(prompt).toContain("bargainMode comes from the SITUATION");
+    expect(prompt).toContain("Fancy places and chains are always \"fixed\"");
+  });
+  it("a reply without bargainMode is fine", async () => {
+    respond(answer);
+    expect((await new GeminiAskParser("test-key").parse({ city: "bali", text: "taxi airport" }, SEED_PRICES)).bargainMode).toBeUndefined();
+  });
+  it("a reply with an invented category is not accepted as data", async () => {
+    respond({ ...answer, itemId: "", item: "Kite lesson", category: "adventure", amount: 500000 });
+    const err = await new GeminiAskParser("test-key").parse({ city: "bali", text: "kite lesson 500000" }, SEED_PRICES).catch((e) => e);
+    expect(err).not.toBeInstanceOf(UnknownItemError); // the schema refuses it, so nothing gets researched or saved under a made-up category
   });
   it("a real follow-up question is still a ParseError", async () => {
     respond({ ...answer, clarification: "How much is the driver asking?", itemId: "", amount: 0, confidence: 0 });

@@ -23,6 +23,19 @@ describe("Gemini advice", () => {
     expect(facts).toMatchObject({ verdict: "tooHigh", usualRange: { min: 150000, max: 250000 }, situation: "airport, at night" });
     expect(body.systemInstruction.parts[0].text).toContain("never change the verdict");
   });
+  it("for a fixed-price place the facts say so and the prompt forbids haggling", async () => {
+    const fixed = checkPrice(trip, taxi, 400000, "local", { bargainMode: "fixed", alternative: { name: "Nasi goreng at a warung", min: 25000, max: 50000, currency: "IDR" } });
+    const spy = respond({ advice: "Check the bill.", tips: ["Check the bill for service and tax.", "Ask for the menu first."] });
+    const draft = await new GeminiAdvisor("test-key").advise(fixed, ctx);
+    expect(draft.tips).toHaveLength(2);
+    const body = JSON.parse(spy.mock.calls[0][1]!.body as string);
+    const facts = JSON.parse(body.contents[0].parts[0].text.replace("FACTS: ", ""));
+    expect(facts).toMatchObject({ bargainMode: "fixed", alternative: { min: 25000, max: 50000 } });
+    const rules = body.systemInstruction.parts[0].text as string;
+    expect(rules).toContain("NEVER suggest haggling, bargaining or negotiating");
+    expect(rules).toContain('Write "tips": 2 to 3 short tips');
+    expect(rules).toContain('bargainMode "ask"');
+  });
   it("throws on errors and on malformed replies so the route can use the template", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 429 }));
     await expect(new GeminiAdvisor("test-key").advise(result, ctx)).rejects.toThrow("429");

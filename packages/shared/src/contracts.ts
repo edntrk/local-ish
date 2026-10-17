@@ -11,11 +11,22 @@ import { z } from "zod";
 export const Style = z.enum(["local", "mid", "fancy"]);
 export type Style = z.infer<typeof Style>;
 
-export const Category = z.enum(["transport", "food", "sim", "shopping"]);
-export type Category = z.infer<typeof Category>;
+/** The one fixed list of categories, used everywhere (prices, expenses, AI prompts, charts). Never invent another. */
+export const CATEGORIES = ["transport", "food", "activities", "shopping", "stay", "essentials", "other"] as const;
+export const CATEGORY_LABELS: Record<(typeof CATEGORIES)[number], string> = {
+  transport: "Transport", food: "Food & drink", activities: "Activities", shopping: "Shopping", stay: "Stay", essentials: "Essentials", other: "Other",
+};
+const CategoryEnum = z.enum(CATEGORIES);
+export type Category = z.infer<typeof CategoryEnum>;
+/** Reads the list above; the old value "sim" is still understood and means essentials. */
+export const Category = z.preprocess((v) => (v === "sim" ? "essentials" : v), CategoryEnum);
 
 export const Verdict = z.enum(["great", "fair", "high", "tooHigh"]);
 export type Verdict = z.infer<typeof Verdict>;
+
+/** How a price can be handled where you are: bargain (haggle), ask (a polite "any discount?"), fixed (the price is the price). */
+export const BargainMode = z.enum(["bargain", "ask", "fixed"]);
+export type BargainMode = z.infer<typeof BargainMode>;
 
 /** A price reference row: what locals usually pay. Owned by the Data role. */
 export const PriceItem = z.object({
@@ -30,6 +41,7 @@ export const PriceItem = z.object({
   source: z.string().optional(), // where the number came from
   checkedOn: z.string().optional(), // ISO date the number was last verified
   origin: z.enum(["seed", "web"]).optional(), // "seed" = checked by us, "web" = researched by the AI from search results (and saved)
+  bargain: BargainMode.optional(), // the usual way to handle this price (market stall = bargain, menu restaurant = fixed); the situation can override it
 });
 export type PriceItem = z.infer<typeof PriceItem>;
 
@@ -98,8 +110,8 @@ export const Summary = z.object({
   myLeft: z.number(),
   dailyAllowance: z.number(),
   groupSpent: z.number(),
-  byCategoryMine: z.record(Category, z.number()),
-  byCategoryGroup: z.record(Category, z.number()),
+  byCategoryMine: z.record(CategoryEnum, z.number()),
+  byCategoryGroup: z.record(CategoryEnum, z.number()),
   owes: z.array(z.object({ personId: z.string(), name: z.string(), amount: z.number() })),
   // ---- added later, all optional: the same numbers worked out for ONE viewer (see GET /api/trips/:id/summary?personId=) ----
   viewerId: z.string().optional(), // whose point of view this is
@@ -132,6 +144,7 @@ export const ParsedAsk = z.object({
   item: z.string().optional(), // what the tourist is buying, in words (useful when itemId is "" because there is no price yet)
   researched: z.boolean().optional(), // true when the price for itemId was just researched on the web for this request
   sources: z.array(z.string()).optional(), // pages the research used (only with researched)
+  bargainMode: BargainMode.optional(), // read from the SITUATION ("fancy restaurant", "Grab app" = fixed); overrides the item's usual mode
 });
 export type ParsedAsk = z.infer<typeof ParsedAsk>;
 
@@ -151,6 +164,7 @@ export const CheckRequest = z.object({
   amount: z.number().nonnegative(),
   style: Style,
   situation: z.string().optional(), // from /api/parse, e.g. "airport, at night"; helps the advice
+  bargainMode: BargainMode.optional(), // from /api/parse; the API still applies its own rule (fancy places and chains are never "bargain")
 });
 export type CheckRequest = z.infer<typeof CheckRequest>;
 
@@ -170,6 +184,12 @@ export const CheckResult = z.object({
   /** Bargaining plan, only for high / tooHigh. All three numbers stay inside the usual range. */
   plan: z.object({ openWith: z.number(), aimFor: z.number(), walkAwayAbove: z.number() }).optional(),
   /** What to say, only for high / tooHigh. `local` is Bahasa Indonesia, `lang` is its BCP-47 code. */
+  /** How to handle this price here. The verdict is the same in every mode; only the suggested action changes. */
+  bargainMode: BargainMode.optional(),
+  /** For "fixed" places: 2 to 3 short tips (check the bill, use the meter, ask for the menu), never about haggling. */
+  tips: z.array(z.string()).optional(),
+  /** For "fixed" places: a cheaper way to get the same thing, with a price range from our data. */
+  alternative: z.object({ name: z.string(), min: z.number(), max: z.number(), currency: z.string() }).optional(),
   /** "local" = a price from our own list, "web" = a price the AI researched from search results and saved. */
   source: z.enum(["local", "web"]).optional(),
   sources: z.array(z.string()).optional(), // pages behind a "web" price

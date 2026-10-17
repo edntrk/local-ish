@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyAdvice, balances, checkPrice, clampPlan, equalShares, perPersonBudget, rangeFor, settleUp, summarise, templatePhrase, verdictFor } from "./pricing";
-import { CheckResult, NewExpense, Trip, type PriceItem } from "./contracts";
+import { applyAdvice, askPhrase, balances, cheaperAlternative, defaultBargain, resolveBargainMode, templateAdvice, templateTips, checkPrice, clampPlan, equalShares, perPersonBudget, rangeFor, settleUp, summarise, templatePhrase, verdictFor } from "./pricing";
+import { CATEGORIES, CATEGORY_LABELS, Category, CheckResult, Expense, NewExpense, PriceItem as PriceItemSchema, Summary, Trip, type PriceItem } from "./contracts";
 
 const taxi: PriceItem = { id: "taxi-airport", city: "bali", category: "transport", name: "Taxi: airport to Seminyak", min: 150000, max: 250000, currency: "IDR", tip: "Use Grab or the official counter." };
 const trip: Trip = {
@@ -149,5 +149,130 @@ describe("per viewer: summary, balances and settle up", () => {
   it("a joiner changes the head count, so everyone's share shrinks", () => {
     const four = { ...group, people: [...group.people, { id: "rio", name: "Rio", isMe: false, status: "joined" as const }] };
     expect(summarise(four, [], "me").myBudget).toBe((1800 * 21500) / 4);
+  });
+});
+
+describe("the fixed category list", () => {
+  it("is exactly these seven, with these labels", () => {
+    expect([...CATEGORIES]).toEqual(["transport", "food", "activities", "shopping", "stay", "essentials", "other"]);
+    expect(Object.values(CATEGORY_LABELS)).toEqual(["Transport", "Food & drink", "Activities", "Shopping", "Stay", "Essentials", "Other"]);
+  });
+  it("accepts the seven, reads the old 'sim' as essentials, and refuses anything else", () => {
+    for (const c of CATEGORIES) expect(Category.parse(c)).toBe(c);
+    expect(Category.parse("sim")).toBe("essentials");
+    expect(Category.safeParse("adventure").success).toBe(false);
+    const old = { id: "sim", city: "bali", category: "sim", name: "SIM", min: 1, max: 2, currency: "IDR", tip: "" };
+    expect(PriceItemSchema.parse(old).category).toBe("essentials");
+    expect(Expense.parse({ id: "e", tripId: "t", item: "SIM", category: "sim", amount: 5, paidBy: "me", shares: { me: 5 }, createdAt: "" }).category).toBe("essentials");
+  });
+  it("the summary has all seven categories, so every one can be charted", () => {
+    const sum = summarise(trip, [
+      { id: "a", tripId: "t1", item: "Surf lesson", category: "activities", amount: 300, paidBy: "me", shares: { me: 100, bella: 100, dewi: 100 }, createdAt: "" },
+      { id: "b", tripId: "t1", item: "Villa", category: "stay", amount: 90, paidBy: "me", shares: { me: 30, bella: 30, dewi: 30 }, createdAt: "" },
+      { id: "c", tripId: "t1", item: "SIM", category: "essentials", amount: 20, paidBy: "me", shares: { me: 20 }, createdAt: "" },
+    ]);
+    expect(Object.keys(sum.byCategoryMine)).toEqual([...CATEGORIES]);
+    expect(sum.byCategoryMine).toMatchObject({ activities: 100, stay: 30, essentials: 20, transport: 0, other: 0 });
+    expect(sum.byCategoryGroup).toMatchObject({ activities: 300, stay: 90, essentials: 0 });
+    expect(() => Summary.parse(sum)).not.toThrow();
+  });
+});
+
+describe("bargain modes: the verdict stays, only the action changes", () => {
+  const item = (o: Partial<PriceItem> = {}): PriceItem => ({ ...taxi, ...o });
+  const pricesList: PriceItem[] = [
+    item({ id: "nasi", category: "food", name: "Nasi goreng at a warung", min: 25000, max: 50000, bargain: "ask" }),
+    item({ id: "tea", category: "food", name: "Iced tea at a café", min: 10000, max: 25000, bargain: "fixed" }),
+    item({ id: "steak", category: "food", name: "Steak dinner", min: 120000, max: 220000, bargain: "fixed" }),
+  ];
+
+  it("defaults: the item's own mode, or a guess by category", () => {
+    expect(defaultBargain({ category: "transport", bargain: "fixed" })).toBe("fixed");
+    expect(defaultBargain({ category: "shopping" })).toBe("bargain");
+    expect(defaultBargain({ category: "activities" })).toBe("ask");
+    expect(defaultBargain({ category: "stay" })).toBe("fixed");
+    expect(defaultBargain({ category: "essentials" })).toBe("fixed");
+  });
+  it("fancy places and chain, app or menu situations are never 'bargain'", () => {
+    const base = { itemDefault: "bargain" as const };
+    expect(resolveBargainMode({ ...base, style: "fancy" })).toBe("fixed");
+    for (const situation of ["fancy restaurant", "supermarket", "Grab app", "Indomaret", "at the mall", "beach club", "restaurant with a menu", "metered taxi", "Starbucks"])
+      expect(resolveBargainMode({ ...base, situation })).toBe("fixed");
+    // even if the AI said bargain, or the item says ask
+    expect(resolveBargainMode({ requested: "bargain", situation: "supermarket", itemDefault: "ask" })).toBe("fixed");
+    expect(resolveBargainMode({ style: "fancy", itemDefault: "ask" })).toBe("fixed");
+  });
+  it("without such a sign, the situation can override the item's usual mode", () => {
+    expect(resolveBargainMode({ situation: "market stall", itemDefault: "bargain" })).toBe("bargain");
+    expect(resolveBargainMode({ requested: "ask", situation: "street", itemDefault: "bargain" })).toBe("ask");
+    expect(resolveBargainMode({ itemDefault: "ask" })).toBe("ask");
+  });
+
+  it("same verdict in every mode; plan and Bargain only in bargain mode", () => {
+    const run = (bargainMode: "bargain" | "ask" | "fixed") => checkPrice(trip, taxi, 400000, "local", { bargainMode });
+    const [b, a, f] = [run("bargain"), run("ask"), run("fixed")];
+    expect([b.verdict, a.verdict, f.verdict]).toEqual(["tooHigh", "tooHigh", "tooHigh"]);
+    expect([b.range, a.range]).toEqual([f.range, f.range]);
+    expect(b.bargainMode).toBe("bargain");
+    expect(b.plan).toBeDefined();
+    expect(b.phrase?.local).toContain("ribu");
+    expect(b.tips).toBeUndefined();
+    // ask: no plan chips, one polite phrase
+    expect(a.bargainMode).toBe("ask");
+    expect(a.plan).toBeUndefined();
+    expect(a.phrase).toMatchObject({ local: "Ada diskon?", english: "Is there a discount?", lang: "id-ID" });
+    expect(a.tips).toBeUndefined();
+    // fixed: no plan, no phrase, tips instead, and nothing about haggling
+    expect(f.bargainMode).toBe("fixed");
+    expect(f.plan).toBeUndefined();
+    expect(f.phrase).toBeUndefined();
+    expect(f.tips!.length).toBeGreaterThanOrEqual(2);
+    expect([f.advice, ...f.tips!].join(" ")).not.toMatch(/barg|haggl|negotiat/i);
+    expect(() => CheckResult.parse(f)).not.toThrow();
+  });
+  it("ask mode offers the phrase unless the price is already a great deal", () => {
+    expect(checkPrice(trip, taxi, 100000, "local", { bargainMode: "ask" }).phrase).toBeUndefined();
+    expect(checkPrice(trip, taxi, 200000, "local", { bargainMode: "ask" }).phrase?.local).toBe("Ada diskon?");
+  });
+  it("the item's own mode is used when nothing else is said", () => {
+    expect(checkPrice(trip, item({ bargain: "fixed" }), 200000, "local").bargainMode).toBe("fixed");
+    expect(checkPrice(trip, item({ bargain: "ask" }), 200000, "local").bargainMode).toBe("ask");
+    expect(checkPrice(trip, taxi, 200000, "fancy").bargainMode).toBe("fixed"); // taxi defaults to bargain, fancy overrides
+  });
+  it("a cheaper alternative comes from our data", () => {
+    // fancy or mid-range: the same thing at a local place costs the plain range
+    expect(cheaperAlternative(pricesList[0], "fancy", pricesList)).toEqual({ name: "Nasi goreng at a warung", min: 25000, max: 50000, currency: "IDR" });
+    // local but fixed: a cheaper item in the same category that is not itself fixed
+    expect(cheaperAlternative(pricesList[2], "local", pricesList)?.name).toBe("Nasi goreng at a warung");
+    // nothing cheaper and not fixed: no alternative
+    expect(cheaperAlternative(pricesList[1], "local", pricesList)).toBeUndefined();
+  });
+  it("fixed-mode tips: no haggling, mention the alternative with its range", () => {
+    const tips = templateTips({ category: "food" }, { name: "Nasi goreng at a warung", min: 25000, max: 50000, currency: "IDR" });
+    expect(tips).toHaveLength(3);
+    expect(tips[0]).toContain("menu");
+    expect(tips[1]).toContain("service charge and tax");
+    expect(tips[2]).toContain("Rp25,000 to Rp50,000");
+    expect(templateTips({ category: "transport" })[0]).toContain("meter");
+    for (const v of ["great", "fair", "high", "tooHigh"] as const) expect(templateAdvice("fixed", v)).not.toMatch(/barg|haggl|negotiat/i);
+  });
+  it("applyAdvice in a fixed-price place drops anything about haggling and keeps the verdict", () => {
+    const base = checkPrice(trip, taxi, 400000, "local", { bargainMode: "fixed" });
+    const bad = applyAdvice(base, { advice: "Try to bargain it down.", tips: ["Haggle hard.", "Negotiate a discount.", "Check the bill for service charge."] });
+    expect(bad.verdict).toBe("tooHigh");
+    expect(bad.advice).toBe(base.advice); // the haggling advice was refused
+    expect(bad.tips).toEqual(base.tips); // fewer than two usable tips: the template tips stay
+    const good = applyAdvice(base, { advice: "Check the bill, it is a fixed price.", tips: ["Ask for the menu first.", "Use the meter.", "Check service and tax.", "A fourth tip is cut."] });
+    expect(good.advice).toBe("Check the bill, it is a fixed price.");
+    expect(good.tips).toEqual(["Ask for the menu first.", "Use the meter.", "Check service and tax."]);
+    expect(good.plan).toBeUndefined();
+    expect(good.phrase).toBeUndefined();
+  });
+  it("applyAdvice in ask mode keeps the one polite phrase and adds no plan", () => {
+    const base = checkPrice(trip, taxi, 400000, "local", { bargainMode: "ask" });
+    const out = applyAdvice(base, { advice: "Worth asking nicely.", plan: { openWith: 1, aimFor: 2, walkAwayAbove: 3 }, phrase: { local: "Wah 1 ribu", english: "x" } });
+    expect(out.advice).toBe("Worth asking nicely.");
+    expect(out.plan).toBeUndefined();
+    expect(out.phrase).toEqual(askPhrase());
   });
 });

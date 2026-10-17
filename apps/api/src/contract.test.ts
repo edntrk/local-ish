@@ -114,6 +114,15 @@ describe("API keeps its promises", () => {
     expect(sum.owes.find((o) => o.personId === "bella")!.amount).toBeGreaterThanOrEqual(60000);
   });
 
+  it("expense categories: the fixed seven, old 'sim' saved as essentials, anything else refused", async () => {
+    const save = (category: string) => call("/api/trips/demo/expenses", { method: "POST", body: JSON.stringify({ item: "Thing", category, amount: 1000, paidBy: "me", shares: { me: 1000 } }) });
+    for (const c of ["transport", "food", "activities", "shopping", "stay", "essentials", "other"]) expect((await save(c)).status).toBe(201);
+    const old = await save("sim");
+    expect(old.status).toBe(201);
+    expect(old.body.category).toBe("essentials");
+    expect((await save("adventure")).status).toBe(400);
+  });
+
   it("rejects a split that doesn't add up", async () => {
     const r = await call("/api/trips/demo/expenses", { method: "POST", body: JSON.stringify({ item: "Tea", category: "food", amount: 30000, paidBy: "me", shares: { me: 10000 } }) });
     expect(r.status).toBe(400);
@@ -232,6 +241,50 @@ describe("API keeps its promises", () => {
     const tts = await call("/api/voice/tts", { method: "POST", body: JSON.stringify({ text: "Wah, mahal banget!", lang: "id-ID" }) });
     expect(tts.status).toBe(204);
     expect(tts.headers.get("x-fairfare-mock")).toBe("1");
+  });
+});
+
+describe("bargain modes through the real routes (mock parser, no Gemini)", () => {
+  // "parse" then "check", the way the page does it: the situation and mode from parse go into check
+  const flow = async (text: string) => {
+    const ask = ParsedAsk.parse((await call("/api/parse", { method: "POST", body: JSON.stringify({ city: "bali", text }) })).body);
+    const res = CheckResult.parse((await call("/api/check", { method: "POST", body: JSON.stringify({
+      tripId: "demo", itemId: ask.itemId, amount: ask.amount, style: ask.style, situation: ask.situation, bargainMode: ask.bargainMode }) })).body);
+    return { ask, res };
+  };
+
+  it("'fancy restaurant' is a fixed-price place: tips, a cheaper alternative from our data, no plan or phrase", async () => {
+    const { res } = await flow("nasi goreng at a fancy restaurant, 150000");
+    expect(res.bargainMode).toBe("fixed");
+    expect(res.plan).toBeUndefined();
+    expect(res.phrase).toBeUndefined();
+    expect(res.tips!.length).toBeGreaterThanOrEqual(2);
+    expect(res.alternative).toMatchObject({ name: "Nasi goreng at a warung", min: 25000, max: 50000 }); // the same dish at a local place
+    expect(res.verdict).toBe("fair"); // fancy range 87,500-175,000: the verdict still shows
+    expect([res.advice, ...res.tips!].join(" ")).not.toMatch(/barg|haggl|negotiat/i);
+  });
+  it("'market sarong' is bargain: plan and phrase", async () => {
+    const { res } = await flow("batik sarong at the market, 300000");
+    expect(res.bargainMode).toBe("bargain");
+    expect(res.verdict).toBe("tooHigh");
+    expect(res.plan).toBeDefined();
+    expect(res.phrase?.local).toContain("ribu");
+    expect(res.tips).toBeUndefined();
+  });
+  it("'massage' is ask: one polite phrase, no plan chips, the verdict still shows", async () => {
+    const { res } = await flow("massage, 400000");
+    expect(res.bargainMode).toBe("ask");
+    expect(res.item.id).toBe("massage");
+    expect(res.verdict).toBe("tooHigh");
+    expect(res.plan).toBeUndefined();
+    expect(res.phrase).toMatchObject({ local: "Ada diskon?", english: "Is there a discount?" });
+  });
+  it("a chain, app or supermarket situation can never be bargain, even if the request says so", async () => {
+    const r = await call("/api/check", { method: "POST", body: JSON.stringify({ tripId: "demo", itemId: "sarong", amount: 300000, style: "local", situation: "supermarket", bargainMode: "bargain" }) });
+    expect(CheckResult.parse(r.body)).toMatchObject({ bargainMode: "fixed", verdict: "tooHigh" });
+    const grab = await flow("Grab ride, 90000");
+    expect(grab.res.bargainMode).toBe("fixed"); // Grab: the app sets the price
+    expect(grab.res.plan).toBeUndefined();
   });
 });
 

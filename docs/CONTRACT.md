@@ -54,6 +54,24 @@ POST /api/trips/demo/expenses
 Verdicts: `great` (below the usual range) · `fair` (inside it) · `high` (up to 30% over) · `tooHigh` (more than 30% over).
 Style multiplies the range: `local` ×1, `mid` ×1.8, `fancy` ×3.5.
 
+## Categories
+
+One fixed list, used for prices, expenses, the AI prompts and the charts: `transport`, `food`, `activities`, `shopping`, `stay`, `essentials`, `other` (labels: Transport, Food & drink, Activities, Shopping, Stay, Essentials, Other). The old value `sim` is still read and means `essentials`. Nobody invents a new category: when unsure, use `other`. Tiger databases are moved to the list automatically when the API starts (`db/schema.sql` has the same steps).
+
+## Bargain modes
+
+Every price check has a `bargainMode`, and the verdict (great / fair / high / tooHigh) is the same in all three. Only the suggested action changes:
+
+| Mode | Where | What the Interface shows |
+|---|---|---|
+| `bargain` | markets, street stalls, unmetered taxis, surf lessons, scooter rental | plan chips (Start / Aim / Walk away), a Bahasa phrase, the Bargain button |
+| `ask` | a warung without a menu, massage, tours | one polite phrase ("Ada diskon?" + English), then Pay / Leave it |
+| `fixed` | menu restaurants and cafés, beach clubs, supermarkets, malls, Grab / Gojek, metered taxis | a "Fixed-price place" tag, 2 to 3 tips (check the bill for service and tax, use the app or meter, ask for the menu), and a cheaper alternative with a price range from our data. Never anything about haggling |
+
+How the mode is decided (`resolveBargainMode` in `packages/shared`): the item's usual mode (`price_items.bargain`, with a guess by category when empty) is the start; the situation as read by Gemini (`ParsedAsk.bargainMode`) can override it; and a **fancy** style or a **chain / app / menu** situation (restaurant, café, beach club, hotel, supermarket, mall, Grab, Gojek, meter, Indomaret, Starbucks...) is never `bargain`: it becomes `fixed`.
+
+Additive fields: `PriceItem.bargain`, `ParsedAsk.bargainMode`, `CheckRequest.bargainMode`, `CheckResult.bargainMode`, `CheckResult.tips`, `CheckResult.alternative`. In `fixed` mode the code throws away any advice or tip that talks about haggling and falls back to the template.
+
 ## The price database learns new items
 
 When Gemini understands a sentence ("surf lesson in Canggu, 500000") but our list has no matching item, `POST /api/parse` researches it instead of giving up:
