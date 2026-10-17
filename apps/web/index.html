@@ -13,7 +13,7 @@
 <style>
 /* Layout: one phone-width app column. Palette: lime + black + white (local-ish) */
 :root{
-  --lime:#C1F44F;
+  --lime:#C1F44F; --charcoal:#3A3B33;
   --bg:#EBF9CB; --surface:#FFFFFF; --surface-2:#F3FADF; --fg:#0A0A0A; --muted:#59614C; --line:#DDEBC2;
   --primary:#0A0A0A; --on-primary:#C1F44F; --saffron:#C1F44F; --saffron-bg:#EEF6D6;
   --good:#1F7A3E; --good-bg:#DDF3D0; --warn:#8A5A00; --warn-bg:#FBEBCB; --bad:#B23A27; --bad-bg:#F8DDD7;
@@ -29,13 +29,13 @@
   --primary:#C1F44F; --on-primary:#0B0B0B; --saffron:#C1F44F; --saffron-bg:#1F2612;
   --good:#8EDB8A; --good-bg:#16301B; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
   --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --track:#2A2A2A;
-  --ink:#3A3B33; --ink-line:transparent; color-scheme:dark }}
+  --charcoal:#262626; --ink:#262626; --ink-line:transparent; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#0B0B0B; --surface:#161616; --surface-2:#222222; --fg:#F4F8E8; --muted:#A3AA96; --line:#2A2A2A;
   --primary:#C1F44F; --on-primary:#0B0B0B; --saffron:#C1F44F; --saffron-bg:#1F2612;
   --good:#8EDB8A; --good-bg:#16301B; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
   --c1:#C1F44F; --c2:#7FB414; --c3:#93A2F2; --c4:#F2907C; --track:#2A2A2A;
-  --ink:#3A3B33; --ink-line:transparent; color-scheme:dark }
+  --charcoal:#262626; --ink:#262626; --ink-line:transparent; color-scheme:dark }
 
 *{box-sizing:border-box}
 body{background:var(--bg);min-height:100vh;color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
@@ -85,12 +85,12 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .progress i{display:block;height:100%;background:var(--primary);border-radius:99px}
 .choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .choice button{position:relative;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;display:flex;flex-direction:column;gap:4px}
-.choice button[aria-pressed="true"]{background:#3A3B33;border-color:#3A3B33;color:#fff}
+.choice button[aria-pressed="true"]{background:var(--charcoal);border-color:var(--charcoal);color:#fff}
 .choice button[aria-pressed="true"] span{color:#D5D7CA}
 :root[data-theme="dark"] .choice button[aria-pressed="true"]{border-color:var(--lime)}
 .choice strong{font-family:var(--display);font-size:17px}
 .choice span{font-size:13px;color:var(--muted)}
-.chip-auto{display:flex;align-items:center;gap:14px;background:#3A3B33;color:#fff;border-radius:14px;padding:6px 16px 6px 6px;font-size:15px}
+.chip-auto{display:flex;align-items:center;gap:14px;background:var(--charcoal);color:#fff;border-radius:14px;padding:6px 16px 6px 6px;font-size:15px}
 .chip-auto b{font-family:var(--display);font-size:18px}
 .friends{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
 .friends li{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid var(--line);padding:8px 8px 8px 14px;border-radius:14px;font-weight:600}
@@ -100,7 +100,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 
 /* home */
 .top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
-.cur{display:flex;align-items:center;gap:8px;background:#3A3B33;color:#fff;font-family:var(--display);font-weight:700;font-size:14px;padding:4px 12px 4px 4px;border-radius:12px}
+.cur{display:flex;align-items:center;gap:8px;background:var(--charcoal);color:#fff;font-family:var(--display);font-weight:700;font-size:14px;padding:4px 12px 4px 4px;border-radius:12px}
 .cur i{font-style:normal;width:28px;height:28px;border-radius:10px;background:var(--lime);color:#0A0A0A;display:grid;place-items:center;font-family:var(--body);font-weight:800;font-size:12px}
 .hero{background:var(--primary);color:var(--on-primary);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
 .hero .eyebrow{color:var(--on-primary);opacity:.75}
@@ -182,6 +182,12 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .tile[aria-expanded="true"]{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--fg)}
 .tile .bar{display:block}
 .tile .val{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.donut-row{display:flex;align-items:center;gap:16px}
+.donut{flex:none;width:96px;height:96px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--charcoal) 0 var(--spent),var(--lime) var(--spent) 360deg);position:relative}
+.donut>span{width:66px;height:66px;border-radius:50%;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:18px;line-height:1}
+.donut>span small{font-family:var(--body);font-size:11px;font-weight:600;color:var(--muted)}
+.donut-text{display:flex;flex-direction:column;gap:6px;min-width:0}
+.gbp{font-weight:700;font-size:15px}
 .tile .val small{display:block;font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted)}
 .tile.group{background:var(--ink);border-color:var(--ink);color:#fff}
 .tile.group .eyebrow,.tile.group .hint,.tile.group .val small{color:#A5A5A5}
@@ -555,7 +561,6 @@ function checkBody(){
       <label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>
       <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening?'Listening…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off">
       <button class="icon-btn ${c.listening?'on':''}" data-action="listen" aria-label="Say it">${ICON.voice}</button>
-      <button class="icon-btn send" data-action="send" aria-label="Check this price">${SEND}</button>
     </div>
     <input id="photoIn" type="file" accept="image/*" hidden>`;
   const err=c.err?`<p class="err">${c.err}</p>`:'';
@@ -656,8 +661,13 @@ function budgetFrames(){
   const myTile=`
     <button class="tile me" data-action="money" data-k="me" aria-expanded="${open==='me'}">
       <span class="eyebrow">My money</span>
-      <span class="val">${Math.round(b-used).toLocaleString('en-GB')} <small>IDR left</small></span>
-      <span class="bar ${used>b?'over':''}"><i style="width:${Math.min(100,used/b*100||0)}%"></i></span>
+      <span class="donut-row">
+        <span class="donut" style="--spent:${Math.min(100,used/b*100||0)*3.6}deg" role="img" aria-label="${Math.round(Math.max(0,100-used/b*100||0))}% of budget left"><span>${Math.round(Math.max(0,100-used/b*100||0))}%<small>left</small></span></span>
+        <span class="donut-text">
+          <span class="val">${Math.round(b-used).toLocaleString('en-GB')} <small>IDR left</small></span>
+          <span class="gbp">≈ ${fmtHome((b-used)/RATES[home()])} left</span>
+        </span>
+      </span>
       <span class="hint">${loc(used)} of ${loc(b)} spent</span>
       <span class="more">${open==='me'?'Hide breakdown':'See breakdown'}</span>
     </button>`;
@@ -690,8 +700,7 @@ function budgetFrames(){
       </div>
     </section>`;
   }
-  return `<section class="stack" id="budget" aria-labelledby="h-money">
-    <h2 id="h-money">Money</h2>
+  return `<section class="stack" id="budget" aria-label="Money">
     <div class="money ${isGroup()?'':'solo'}">${myTile}${groupTile}</div>
     ${detail}
   </section>`;
