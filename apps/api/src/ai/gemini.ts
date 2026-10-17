@@ -27,10 +27,12 @@ export class GeminiAskParser implements AskParser {
   constructor(private apiKey: string, private model = process.env.GEMINI_MODEL ?? "gemini-3.5-flash") {}
 
   private async understand(req: ParseRequest, prices: PriceItem[]) {
-    if (!this.apiKey.trim()) throw new ParseError("Gemini is not configured. Please add the API key.");
+    // Infrastructure problems below throw a plain Error on purpose: withFallback then lets the mock parser answer.
+    // ParseError is kept for real answers like "How much is the driver asking?".
+    if (!this.apiKey.trim()) throw new Error("gemini parse: no API key");
     if (!req.text?.trim() && !req.imageBase64) throw new ParseError("Enter an expense or upload a photo first.");
     if ((req.text?.length ?? 0) > 12000) throw new ParseError("Please send a shorter message.");
-    const currency = prices[0]?.currency ?? "MAD";
+    const currency = prices[0]?.currency ?? "IDR";
     const instruction = `You are FairFare, a friendly tourist price-check assistant in ${req.city}.
 Accept input in any language, including mixed languages, accents, informal wording, typos,
 and prices written as words or digits. Read menus, receipts and price tags in their original language.
@@ -82,16 +84,14 @@ For incomplete input use itemId "", amount 0 and confidence 0 as placeholders, a
           } },
         }),
       });
-    } catch { throw new ParseError("I couldn't reach Gemini. Please try your message again."); }
-    if (!res.ok) throw new ParseError(res.status === 429
-      ? "Gemini is busy or its quota is used up. Please try again shortly."
-      : "Gemini couldn't process that message. Please try again or check the API configuration.");
+    } catch (e) { throw new Error(`gemini parse network error: ${(e as Error).name}`); } // includes the 30s timeout
+    if (!res.ok) throw new Error(`gemini parse ${res.status}`); // 429 quota, 5xx outage, 400/403 bad config: all fall back
     const data = await res.json().catch(() => null);
     const raw = data?.candidates?.[0]?.content?.parts?.filter((p: { thought?: boolean }) => !p.thought)
       .map((p: { text?: string }) => p.text ?? "").join("") ?? "";
     let reply: z.infer<typeof Reply>;
     try { reply = Reply.parse(JSON.parse(raw)); }
-    catch { throw new ParseError("I couldn't read that response. Could you try again?"); }
+    catch { throw new Error("gemini parse: unreadable reply"); }
     if (reply.clarification.trim()) throw new ParseError(reply.clarification);
     if (reply.currency !== currency) throw new ParseError(`What is the quoted price in ${currency}?`);
     if (reply.confidence < 0.5)

@@ -23,7 +23,7 @@ const post = <T>(path: string, body: unknown) => req<T>(path, { method: "POST", 
 
 export const api = {
   health: () => req<Health>("/health"),
-  prices: (city = "marrakech") => req<PriceItem[]>(`/prices?city=${encodeURIComponent(city)}`),
+  prices: (city = "bali") => req<PriceItem[]>(`/prices?city=${encodeURIComponent(city)}`),
 
   /** an invite code before the trip exists, so the invite link can show during setup */
   reserveInviteCode: () => post<{ code: string }>("/invite-codes", {}),

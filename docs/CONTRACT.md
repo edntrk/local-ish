@@ -8,7 +8,7 @@ Money is always in the trip's **local currency** (MAD).
 | Method | Path | Owner | Body → Response |
 |---|---|---|---|
 | GET | `/api/health` | all | → `{ ok, modes: { data, voice, ai } }` |
-| GET | `/api/prices?city=marrakech` | Data | → `PriceItem[]` |
+| GET | `/api/prices?city=bali` | Data | → `PriceItem[]` |
 | POST | `/api/trips` | Data | `Trip` without `id`, `inviteCode` → `Trip`. `budgetHome` = one person's share, optional `groupBudgetHome` = the total. The server makes every person id; the creator is the person with `isMe: true`. |
 | GET | `/api/trips/:id` | Data | → `Trip` |
 | POST | `/api/invite-codes` | Data | → `{ code }`. Hands out an invite code before the trip exists, so the invite link can be shown while the creator is still in setup. Pass it as `inviteCode` to `POST /api/trips`. |

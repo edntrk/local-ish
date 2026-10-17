@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkPrice } from "@fairfare/shared";
 import { GeminiAdvisor } from "./gemini-advice";
-import { MockAskParser } from "./mock";
+import { MockAskParser, lastAmount } from "./mock";
 import { MockDataStore } from "../data/mock";
 import { SEED_PRICES } from "../data/seed-prices";
 
@@ -40,6 +40,31 @@ describe("mock parser (Bali)", () => {
     expect(await parse("Iced tea at a fancy beach club, 60k")).toMatchObject({ itemId: "tea", amount: 60000, style: "fancy" });
     expect(await parse("Batik sarong at the market, 300 ribu")).toMatchObject({ itemId: "sarong", amount: 300000 });
     expect(await parse("Nasi goreng at a warung, 15000")).toMatchObject({ itemId: "nasi", amount: 15000 });
+  });
+  it("reads the price, not the people, times or sizes around it", async () => {
+    // coconut isn't a price item yet, so the mock has no item to match; the amount it would read is still right
+    expect(lastAmount("Coconut on Kuta beach, 50000, I'm with 3 friends")).toBe(50000);
+    expect(await parse("Fresh juice on Kuta beach, 50000, I'm with 3 friends")).toMatchObject({ itemId: "oj", amount: 50000 });
+    expect(await parse("taxi airport 400.000")).toMatchObject({ itemId: "taxi-airport", amount: 400000 });
+    expect(await parse("taxi airport Rp 400,000")).toMatchObject({ itemId: "taxi-airport", amount: 400000 });
+    expect(await parse("taxi at 3am from airport 280k")).toMatchObject({ itemId: "taxi-airport", amount: 280000 });
+    expect(await parse("1.5L water 10k")).toMatchObject({ itemId: "water", amount: 10000 });
+  });
+  it("lastAmount: thousands, decimals, juta, and the 'marked as money' rule", () => {
+    expect(lastAmount("400.000")).toBe(400000);
+    expect(lastAmount("400,000")).toBe(400000);
+    expect(lastAmount("1.234.567")).toBe(1234567);
+    expect(lastAmount("1.5k")).toBe(1500);
+    expect(lastAmount("25.5k")).toBe(25500);
+    expect(lastAmount("1.5jt")).toBe(1500000);
+    expect(lastAmount("1,5 juta")).toBe(1500000);
+    expect(lastAmount("300 ribu")).toBe(300000);
+    expect(lastAmount("50 rb")).toBe(50000);
+    expect(lastAmount("IDR 75000 for 2 people")).toBe(75000);
+    expect(lastAmount("5 nights 30 km 2 hrs 7pm")).toBeNull();
+    expect(lastAmount("scooter 80000 for 2 days, 150k deposit")).toBe(150000); // k-marked beats the plain number
+    expect(lastAmount("tea 15000 and a snack 40000")).toBe(40000); // no marks: the largest, not the last-listed
+    expect(lastAmount("hello")).toBeNull();
   });
   it("does not guess for items it has no price for", async () => {
     await expect(parse("Surf lesson, 500000")).rejects.toThrow("Add what it is");

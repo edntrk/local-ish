@@ -25,7 +25,7 @@ export const PriceItem = z.object({
   name: z.string(),
   min: z.number().nonnegative(),
   max: z.number().nonnegative(),
-  currency: z.string(), // e.g. "MAD"
+  currency: z.string(), // e.g. "IDR"
   tip: z.string(),
   source: z.string().optional(), // where the number came from
   checkedOn: z.string().optional(), // ISO date the number was last verified
@@ -45,7 +45,7 @@ export type Person = z.infer<typeof Person>;
 export const Trip = z.object({
   id: z.string(),
   city: z.string(),
-  currency: z.string(), // local currency, e.g. "MAD"
+  currency: z.string(), // local currency, e.g. "IDR"
   homeCurrency: z.string(), // e.g. "GBP"
   rateToLocal: z.number().positive(), // 1 home unit = this many local units
   budgetHome: z.number().nonnegative(), // the "me" budget in home currency (my per-person share when travelling in a group)
