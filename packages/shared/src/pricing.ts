@@ -113,6 +113,8 @@ export function checkPrice(trip: Trip, item: PriceItem, amount: number, style: S
       myShareIfSplit: Math.round(share * 100) / 100,
       pctOfDaily: daily > 0 ? Math.round((share / daily) * 100) : 0,
     },
+    source: item.origin === "web" ? "web" : "local",
+    ...(item.origin === "web" && item.source ? { sources: [item.source] } : {}),
     advice: TEMPLATE_ADVICE[verdict],
     // a plan and a phrase only make sense when the price is high
     ...(verdict === "high" || verdict === "tooHigh"

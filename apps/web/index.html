@@ -271,6 +271,8 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .range .ok{position:absolute;top:0;bottom:0;background:var(--good);opacity:.35;border-radius:99px}
 .range .you{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:3px;transform:translateX(-50%)}
 .range .lbl{position:absolute;top:22px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.src{font-size:12px;font-weight:600;color:var(--muted);margin:0}
+.src a{color:inherit;text-decoration:underline}
 .plan{display:flex;gap:8px;list-style:none;margin:0;padding:0}
 .plan li{flex:1;background:var(--surface);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .plan small{font-size:11px;font-weight:600;color:var(--muted)}
@@ -375,7 +377,7 @@ const S={
   step:1, open:null, errors:{},
   user:{name:'',email:'',age:'',country:'',home:'GBP'},
   trip:{dest:0,budget:'',touched:false,start:'2026-10-24',end:'2026-10-30',mode:'group',friends:[],newFriend:''}, // starts blank: no budget, no friends
-  session:null, tripData:null, summary:null, expenses:[], join:null, loadErr:'', inviteEmail:'', // session + trip come from the API
+  session:null, tripData:null, summary:null, expenses:[], extra:{}, join:null, loadErr:'', inviteEmail:'', // session + trip come from the API
   check:{style:'local',text:'',step:null,err:'',cat:'transport',input:'text',itemId:'taxi-airport',amount:250,result:null,paid:null,paidAmt:0,paidCat:'transport',paidBy:null,saving:false,split:{mode:'equal',on:{},custom:{}},listening:false,transcript:'',photo:null,photoRead:false}
 };
 
@@ -443,7 +445,10 @@ const sharers=e=>Object.values(e.shares).filter(v=>v>0).length;
 // everyone who has joined, ticked by default in the split; person ids are the keys, never names
 const people=()=>T()?T().people.filter(p=>p.status==='joined').map(p=>({key:p.id,id:p.id,name:p.id===myId()?`${p.name} (Me)`:p.name})):[];
 const mapExpense=e=>({id:e.id,item:e.item,cat:e.category,amt:e.amount,shares:e.shares,paidBy:e.paidBy});
-const item=id=>PRICES.find(p=>p.id===id);
+// our built-in list first, then prices the API learned (researched items aren't in the built-in list)
+const item=id=>PRICES.find(p=>p.id===id)||S.extra[id];
+const learnItem=it=>{if(it&&!item(it.id))S.extra[it.id]={id:it.id,cat:it.category,name:it.name,min:it.min,max:it.max,tip:it.tip}};
+const domainOf=u=>{try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return u}};
 let toastT;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
 
@@ -615,7 +620,8 @@ function checkBody(){
         <li><b>Situation</b><span>airport, market, beach club</span></li>
       </ul>
     </div>`:'';
-  return `<div class="chat">${intro}${c.result?resultView():''}${err}</div>${bar}`;
+  const status=c.busy?`<p class="muted" role="status">${c.busyMsg||'Checking…'}</p>`:'';
+  return `<div class="chat">${intro}${c.result?resultView():''}${err}${status}</div>${bar}`;
 }
 
 function verdictOf(p,a){const[mn,mx]=rng(p);if(a<=mx)return a<mn?'great':'fair';if(a<=mx*1.3)return'high';return'tooHigh'}
@@ -665,6 +671,9 @@ function resultView(){
     high:'',tooHigh:''}[v]; // for high prices the Start / Aim / Walk away numbers say it; only Gemini's own advice adds words
   const planHtml=bargainable?`<ul class="plan" aria-label="Bargaining plan"><li><small>Start</small><b>${kTxt(plan.openWith)}</b></li><li><small>Aim</small><b>${kTxt(plan.aimFor)}</b></li><li><small>Walk away</small><b>${kTxt(plan.walkAwayAbove)}+</b></li></ul>`:'';
   const indo=ph.local, polite=ph.polite;
+  // where the price came from: our own list, or the web (with tappable sources: domain name only, new tab)
+  const web=r.api&&r.api.source==='web',links=(r.fresh&&r.sources&&r.sources.length?r.sources:(r.api&&r.api.sources)||[]).slice(0,3);
+  const srcHtml=`<p class="src">${web?(r.fresh?'🌐 Researched just now':'🌐 Researched from the web'):'Local data'}${web&&links.length?' · '+links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · '):''}</p>`;
   const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${loc(a)}`:esc(r.said);
   let next='';
   if(c.step==='choose'||c.step==='bargain') next=`
@@ -687,6 +696,7 @@ function resultView(){
   <div class="verdict v-${v}" aria-live="polite">
     <span class="pill">${label}</span>
     <p class="big">${both(a)}</p>
+    ${srcHtml}
     ${msg?`<p>${msg}</p>`:''}
     <div class="range" aria-hidden="true">
       <span class="ok" style="left:${pos(mn)}%;width:${pos(mx)-pos(mn)}%"></span>
@@ -842,7 +852,7 @@ const A={
   style(t){S.check.style=t.dataset.s;render()},
   money(t){S.open=S.open===t.dataset.k?null:t.dataset.k;render()},
   rmFriend(t){S.trip.friends.splice(+t.dataset.i,1);render()},
-  check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null};c.step='choose';c.scroll='new';
+  check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null,fresh:!!opts.fresh,sources:opts.sources||null};c.step='choose';c.scroll='new';
     if(!item(itemId)){c.paidAmt=amount;c.text='';render();scrollToEl('#check');return} // not in the database: Pay still works
     const k=calc(c.result);
     c.paidAmt=(k.v==='high'||k.v==='tooHigh')?k.plan.aimFor:amount;c.paidCat=k.p.cat;c.text='';render();scrollToEl('#check')},
@@ -1029,19 +1039,24 @@ Object.assign(A,{
 async function sendText(t,from,said){const c=S.check;
   if(c.busy)return;
   if(!t){c.err='Type what it is and the price first.';return render()}
-  c.err='';c.busy=true;render();
-  let r=null,api=null,parsed=false;
+  c.err='';c.busy=true;c.busyMsg='';render();
+  // a brand-new item can take a few seconds while the API researches local prices
+  const slow=setTimeout(()=>{if(c.busy){c.busyMsg='Researching local prices…';render()}},2500);
+  let r=null,api=null,parsed=false,pr=null;
   try{
-    const pr=await window.fairfareApi.parse({city:'bali',text:t});
+    pr=await window.fairfareApi.parse({city:'bali',text:t});
     parsed=true;
-    if(pr.currency==='IDR'&&pr.confidence>=.5&&item(pr.itemId)){
-      r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
-      try{const ck=await window.fairfareApi.check({tripId:S.session?S.session.tripId:'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style});if(ck.currency==='IDR')api=ck}catch(e){}
+    if(pr.currency==='IDR'&&pr.confidence>=.5&&pr.itemId){
+      try{const ck=await window.fairfareApi.check({tripId:S.session?S.session.tripId:'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style,...(pr.situation?{situation:pr.situation}:{})});
+        if(ck.currency==='IDR'){api=ck;learnItem(ck.item)}}catch(e){}
+      if(api||item(pr.itemId))r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
     }
   }catch(e){parsed=false}
-  c.busy=false;
+  clearTimeout(slow);c.busy=false;c.busyMsg='';
   if(!parsed)r=parseAsk(t);
-  if(r){c.style=r.style;return A.check(r.itemId,r.amount,from,said(t),{api})}
+  if(r){c.style=r.style;return A.check(r.itemId,r.amount,from,said(t),{api,fresh:!!(pr&&pr.researched),sources:pr&&pr.sources})}
+  // the API understood it but has no (researched) price: show "no local prices yet", Pay still works
+  if(parsed&&pr&&pr.amount>0)return A.check(null,pr.amount,from,said(t),{name:pr.item||t});
   const nums=t.match(/\d+(\.\d+)?/g);
   if(nums)return A.check(null,Number(nums[nums.length-1]),from,said(t),{name:t});
   c.err='Add what it is and the price, like "iced tea at the beach, 30000".';render()}

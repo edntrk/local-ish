@@ -3,7 +3,7 @@
  * Every endpoint's response is checked against packages/shared/src/contracts.ts.
  * They run on mocks by default. With DATABASE_URL set they also run against Tiger Data.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
@@ -12,6 +12,9 @@ import { MockDataStore } from "./data/mock";
 import { MockVoice } from "./voice/mock";
 import { MockAskParser } from "./ai/mock";
 import type { AdviceWriter } from "./ports";
+import type { AskParser, PriceResearcher } from "./ports";
+import { UnknownItemError } from "./ai/gemini";
+import { createPriceLearner } from "./ai/learn";
 
 let server: Server;
 let base = "";
@@ -229,5 +232,61 @@ describe("API keeps its promises", () => {
     const tts = await call("/api/voice/tts", { method: "POST", body: JSON.stringify({ text: "Wah, mahal banget!", lang: "id-ID" }) });
     expect(tts.status).toBe(204);
     expect(tts.headers.get("x-fairfare-mock")).toBe("1");
+  });
+});
+
+describe("learning a new price end to end (parse -> research -> save -> check)", () => {
+  let srv: Server, url = "", researched = 0, mode: "good" | "quota" = "good";
+  // Gemini "understands" the sentence but has no item for it; the researcher answers from (mocked) search results
+  const ai: AskParser = { parse: async (req) => {
+    const item = /scuba/i.test(req.text ?? "") ? "scuba dive" : "surf lesson";
+    throw new UnknownItemError(item, "other", { amount: 500000, currency: "IDR", style: "local", situation: "Canggu", confidence: 0.9 });
+  } };
+  const researcher: PriceResearcher = { research: async () => {
+    researched++;
+    if (mode === "quota") throw new Error("gemini research 429");
+    return { id: "surf-lesson", name: "Beginner surf lesson", category: "other", min: 350000, max: 600000, currency: "IDR", tip: "Ask what is included.", sources: ["https://example.com/surf"] };
+  } };
+  const post = async (path: string, body: unknown) => {
+    const r = await fetch(url + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    return { status: r.status, body: await r.json() };
+  };
+  beforeAll(async () => {
+    const data = new MockDataStore();
+    srv = createApp({ data, voice: new MockVoice(), ai, learner: createPriceLearner(data, researcher), modes: { data: "mock", voice: "mock", ai: "mock" } }).listen(0);
+    await new Promise((r) => srv.once("listening", r));
+    url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  });
+  afterAll(() => srv.close());
+
+  it("researches once, saves it, and the check uses it and labels it as web data", async () => {
+    const parsed = await post("/api/parse", { city: "bali", text: "surf lesson in Canggu, 500000" });
+    expect(parsed.body).toMatchObject({ itemId: "surf-lesson", researched: true, sources: ["https://example.com/surf"], amount: 500000 });
+    const prices = await (await fetch(url + "/api/prices?city=bali")).json();
+    expect(prices.find((p: { id: string }) => p.id === "surf-lesson")).toMatchObject({ origin: "web", source: "https://example.com/surf" });
+    const checked = CheckResult.parse((await post("/api/check", { tripId: "demo", itemId: "surf-lesson", amount: 500000, style: "local" })).body);
+    expect(checked).toMatchObject({ verdict: "fair", source: "web", sources: ["https://example.com/surf"] });
+    // the tourist's 500000 was never stored as data
+    expect(checked.item).toMatchObject({ min: 350000, max: 600000 });
+    expect(researched).toBe(1);
+  });
+  it("next time the same item comes from the database: no new search", async () => {
+    const before = researched;
+    const second = await post("/api/parse", { city: "bali", text: "surf lesson in Canggu, 450000" });
+    expect(second.body).toMatchObject({ itemId: "surf-lesson", researched: false });
+    expect(researched).toBe(before);
+  });
+  it("our own items are labelled local", async () => {
+    const checked = CheckResult.parse((await post("/api/check", { tripId: "demo", itemId: "taxi-airport", amount: 200000, style: "local" })).body);
+    expect(checked.source).toBe("local");
+    expect(checked.sources).toBeUndefined();
+  });
+  it("if research fails the answer is a plain 'no price yet' (itemId empty), never an error page", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    mode = "quota";
+    const r = await post("/api/parse", { city: "bali", text: "scuba dive, 900000" });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ itemId: "", item: "scuba dive", researched: false, amount: 500000 });
+    vi.restoreAllMocks();
   });
 });

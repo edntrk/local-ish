@@ -54,6 +54,21 @@ POST /api/trips/demo/expenses
 Verdicts: `great` (below the usual range) · `fair` (inside it) · `high` (up to 30% over) · `tooHigh` (more than 30% over).
 Style multiplies the range: `local` ×1, `mid` ×1.8, `fancy` ×3.5.
 
+## The price database learns new items
+
+When Gemini understands a sentence ("surf lesson in Canggu, 500000") but our list has no matching item, `POST /api/parse` researches it instead of giving up:
+
+1. Gemini with Google Search finds the usual local price range in IDR for that item (2 to 3 source pages). It is **never told the tourist's quote**, and only search results are saved.
+2. Code checks the answer: `0 < min < max`, `max <= 50 x min`, currency `IDR`, one of our categories (`other` is stored as `shopping` for now), at least one source URL, name up to 60 characters. Anything that fails is rejected.
+3. It is saved in `price_items` with `origin = 'web'`, `source` = the first URL, `checked_on` = today. An existing slug is reused, never duplicated (`seed` rows are never overwritten).
+4. The normal flow continues: `/api/check` uses the new item like any other.
+
+Next time the item comes straight from the database. A `web` price older than 30 days is researched again (if that fails, the old numbers stay).
+
+If research fails for any reason (quota, search, bad answer), `/api/parse` answers `200` with `itemId: ""` and the item name and amount. The Interface then shows "We don't have local prices for that yet" and Pay still works. The real reason is logged as `[research] <slug> failed: <reason>`.
+
+Additive fields: `PriceItem.origin` (`"seed"` or `"web"`), `ParsedAsk.item`, `ParsedAsk.researched`, `ParsedAsk.sources`, `CheckResult.source` (`"local"` or `"web"`) and `CheckResult.sources`. `DataStore.addPriceItem(item)` and the optional `DataStore.init()` (adds columns on server start) are new.
+
 ## Changing the contract
 
 1. Open a pull request that edits `packages/shared/src/contracts.ts` **only**.

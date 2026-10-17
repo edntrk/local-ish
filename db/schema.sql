@@ -12,8 +12,12 @@ create table if not exists price_items (
   tip         text not null default '',
   source      text,            -- where the number came from (link, shop, survey)
   checked_on  date,            -- when it was last verified
+  origin      text not null default 'seed',  -- 'seed' = checked by us, 'web' = researched by the AI from search results
   primary key (city, id)
 );
+
+-- for databases created before origin existed (the API also runs this on start)
+alter table price_items add column if not exists origin text not null default 'seed';
 
 create table if not exists trips (
   id             text primary key,

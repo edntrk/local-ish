@@ -29,6 +29,7 @@ export const PriceItem = z.object({
   tip: z.string(),
   source: z.string().optional(), // where the number came from
   checkedOn: z.string().optional(), // ISO date the number was last verified
+  origin: z.enum(["seed", "web"]).optional(), // "seed" = checked by us, "web" = researched by the AI from search results (and saved)
 });
 export type PriceItem = z.infer<typeof PriceItem>;
 
@@ -127,6 +128,10 @@ export const ParsedAsk = z.object({
   style: Style,
   situation: z.string().optional(), // e.g. "at night", "tourist area"
   confidence: z.number().min(0).max(1),
+  // ---- added later, optional ----
+  item: z.string().optional(), // what the tourist is buying, in words (useful when itemId is "" because there is no price yet)
+  researched: z.boolean().optional(), // true when the price for itemId was just researched on the web for this request
+  sources: z.array(z.string()).optional(), // pages the research used (only with researched)
 });
 export type ParsedAsk = z.infer<typeof ParsedAsk>;
 
@@ -165,6 +170,9 @@ export const CheckResult = z.object({
   /** Bargaining plan, only for high / tooHigh. All three numbers stay inside the usual range. */
   plan: z.object({ openWith: z.number(), aimFor: z.number(), walkAwayAbove: z.number() }).optional(),
   /** What to say, only for high / tooHigh. `local` is Bahasa Indonesia, `lang` is its BCP-47 code. */
+  /** "local" = a price from our own list, "web" = a price the AI researched from search results and saved. */
+  source: z.enum(["local", "web"]).optional(),
+  sources: z.array(z.string()).optional(), // pages behind a "web" price
   phrase: z
     .object({
       local: z.string(),

@@ -13,6 +13,7 @@ import type { DataStore } from "../ports";
 const rowToPrice = (r: any): PriceItem => ({
   id: r.id, city: r.city, category: r.category, name: r.name, min: Number(r.min_price), max: Number(r.max_price),
   currency: r.currency, tip: r.tip, source: r.source ?? undefined, checkedOn: r.checked_on ? String(r.checked_on).slice(0, 10) : undefined,
+  origin: r.origin === "web" ? "web" : "seed",
 });
 
 export class TigerDataStore implements DataStore {
@@ -27,6 +28,23 @@ export class TigerDataStore implements DataStore {
   async listPrices(city: string) {
     const { rows } = await this.pool.query("select * from price_items where city = $1 order by category, name", [city]);
     return rows.map(rowToPrice);
+  }
+  /** Safe to run on every start: adds the columns newer code needs. */
+  async init() {
+    await this.pool.query("alter table price_items add column if not exists origin text not null default 'seed'");
+    await this.pool.query("alter table trips add column if not exists group_budget_home numeric(12,2)");
+  }
+  async addPriceItem(item: PriceItem) {
+    // new slug: insert. Existing slug: seed rows are never touched; a web row is refreshed only when it is over 30 days old.
+    await this.pool.query(
+      `insert into price_items (id, city, category, name, min_price, max_price, currency, tip, source, checked_on, origin)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'web')
+       on conflict (city, id) do update set name = excluded.name, category = excluded.category, min_price = excluded.min_price, max_price = excluded.max_price,
+         tip = excluded.tip, source = excluded.source, checked_on = excluded.checked_on
+       where price_items.origin = 'web' and price_items.checked_on < current_date - 30`,
+      [item.id, item.city, item.category, item.name, item.min, item.max, item.currency, item.tip, item.source ?? null, item.checkedOn ?? new Date().toISOString().slice(0, 10)],
+    );
+    return (await this.getPrice(item.city, item.id))!;
   }
   async getPrice(city: string, itemId: string) {
     const { rows } = await this.pool.query("select * from price_items where city = $1 and id = $2", [city, itemId]);

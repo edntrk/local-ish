@@ -4,6 +4,16 @@ import { ParsedAsk, type ParseRequest, type PriceItem } from "@fairfare/shared";
 import type { AskParser } from "../ports";
 import { ParseError } from "./mock";
 
+/**
+ * Gemini understood the item and the price but we have no reference price for it yet.
+ * It is a ParseError on purpose (the fallback must not hide it); the route catches it and researches the item.
+ */
+export class UnknownItemError extends ParseError {
+  constructor(public item: string, public category: string | undefined, public ask: Omit<ParsedAsk, "itemId">) {
+    super("We don't have local prices for that yet.");
+  }
+}
+
 // Budget extraction stays local to this adapter; the original parse contract is unchanged.
 const ExpenseDraft = z.object({
   item: z.string().trim().min(1).max(160),
@@ -41,6 +51,7 @@ Preserve amounts, quantities and currency exactly; translating words is not curr
 For a menu with several items, ask a short English question about which item to check; do not choose arbitrarily.
 Use conversation context and the latest correction.
 Only match one of these reference items: ${JSON.stringify(prices.map(p => ({ id: p.id, name: p.name })))}.
+Always reuse an existing reference item when the tourist means the same thing, even in other words ("airport cab" is the airport taxi item; "es teh" is iced tea). Use itemId "" only for something genuinely different.
 Extract the quoted price for ONE reference unit, not quantity, dates, phone numbers or bottle size.
 For an explicit total for multiple identical units, divide by the stated quantity.
 Default currency to ${currency} only when no other currency is mentioned. Never convert currencies.
@@ -101,7 +112,15 @@ For incomplete input use itemId "", amount 0 and confidence 0 as placeholders, a
 
   async parse(req: ParseRequest, prices: PriceItem[]): Promise<ParsedAsk> {
     const reply = await this.understand(req, prices);
-    if (!prices.some(p => p.id === reply.itemId)) throw new ParseError("What are you buying, and how much are they asking? There is no reference price for this item yet.");
+    if (!prices.some(p => p.id === reply.itemId)) {
+      // no match in our list, but we know what it is and what they quoted: let the route research it
+      const item = (reply.item ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 80);
+      if (item && reply.amount > 0) {
+        const { itemId: _ignored, clarification: _c, item: _i, category: _cat, totalAmount: _t, ...ask } = reply;
+        throw new UnknownItemError(item, reply.category, ask);
+      }
+      throw new ParseError("What are you buying, and how much are they asking?");
+    }
     return ParsedAsk.parse(reply);
   }
 

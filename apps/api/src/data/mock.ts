@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Expense, NewExpense, Trip } from "@fairfare/shared";
+import type { Expense, NewExpense, PriceItem, Trip } from "@fairfare/shared";
 import type { DataStore } from "../ports";
 import { SEED_PRICES } from "./seed-prices";
 
@@ -8,6 +8,7 @@ export class MockDataStore implements DataStore {
   private trips = new Map<string, Trip>();
   private expenses: Expense[] = [];
   private reserved = new Set<string>(); // codes handed out before their trip exists
+  private prices: PriceItem[] = SEED_PRICES.map((p) => ({ ...p, origin: "seed" as const })); // a copy, so learned prices never touch the seed list
 
   constructor() {
     // a demo trip so the Interface has something to show straight away
@@ -24,8 +25,17 @@ export class MockDataStore implements DataStore {
     this.expenses.push({ id: "e-demo", tripId: "demo", item: "Taxi: airport to Seminyak", category: "transport", amount: 350000, paidBy: "me", shares: { me: 116666.67, bella: 116666.67, dewi: 116666.66 }, createdAt: new Date().toISOString() });
   }
 
-  async listPrices(city: string) { return SEED_PRICES.filter((p) => p.city === city.toLowerCase()); }
-  async getPrice(city: string, itemId: string) { return SEED_PRICES.find((p) => p.city === city.toLowerCase() && p.id === itemId) ?? null; }
+  async listPrices(city: string) { return this.prices.filter((p) => p.city === city.toLowerCase()); }
+  async getPrice(city: string, itemId: string) { return this.prices.find((p) => p.city === city.toLowerCase() && p.id === itemId) ?? null; }
+  async addPriceItem(item: PriceItem) {
+    const i = this.prices.findIndex((p) => p.city === item.city && p.id === item.id);
+    if (i < 0) { this.prices.push(item); return item; }
+    const old = this.prices[i];
+    // seed rows are ours and never overwritten; a web row is refreshed only once it is over 30 days old
+    const stale = old.origin === "web" && (!old.checkedOn || (Date.now() - Date.parse(old.checkedOn)) / 864e5 > 30);
+    if (stale) this.prices[i] = item;
+    return this.prices[i];
+  }
 
   private freshCode() {
     for (;;) {

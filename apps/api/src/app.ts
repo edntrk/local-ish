@@ -3,10 +3,12 @@ import express, { type NextFunction, type Request, type Response } from "express
 import cors from "cors";
 import { ZodError, z } from "zod";
 import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, summarise } from "@fairfare/shared";
-import type { AdviceWriter, AskParser, DataStore, VoiceService } from "./ports";
+import type { AdviceWriter, AskParser, DataStore, PriceLearner, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
+import { UnknownItemError } from "./ai/gemini";
+import { isStale } from "./ai/learn";
 
-export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; modes: { data: string; voice: string; ai: string } };
+export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; modes: { data: string; voice: string; ai: string } };
 
 const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new one.";
 
@@ -14,7 +16,7 @@ const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new o
 const h = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
   fn(req, res).catch(next);
 
-export function createApp({ data, voice, ai, advisor, modes }: Deps) {
+export function createApp({ data, voice, ai, advisor, learner, modes }: Deps) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "8mb" })); // photos arrive as base64
@@ -81,7 +83,27 @@ export function createApp({ data, voice, ai, advisor, modes }: Deps) {
   /* ----- understanding the ask (AI) ----- */
   app.post("/api/parse", h(async (req, res) => {
     const body = ParseRequest.parse(req.body);
-    res.json(await ai.parse(body, await data.listPrices(body.city)));
+    const prices = await data.listPrices(body.city);
+    let ask;
+    try {
+      ask = await ai.parse(body, prices);
+    } catch (err) {
+      if (!(err instanceof UnknownItemError)) throw err;
+      // Gemini knows what it is and what was quoted, but we have no price yet: research it (at most once per request)
+      const learned = learner ? await learner.learn({ city: body.city, item: err.item, category: err.category, area: err.ask.situation }) : null;
+      if (!learned) {
+        // nothing safe to use: the Interface shows "We don't have local prices for that yet" and Pay still works
+        return res.json({ ...err.ask, itemId: "", item: err.item, researched: false });
+      }
+      return res.json({ ...err.ask, itemId: learned.item.id, item: learned.item.name, researched: learned.researched, sources: learned.sources });
+    }
+    // a researched price older than 30 days is looked up again (a failed refresh keeps the old numbers)
+    const known = prices.find((p) => p.id === ask.itemId);
+    if (learner && known?.origin === "web" && isStale(known.checkedOn)) {
+      const again = await learner.learn({ city: body.city, item: known.name, slug: known.id });
+      return res.json({ ...ask, researched: !!again?.researched, ...(again?.researched ? { sources: again.sources } : {}) });
+    }
+    res.json(ask);
   }));
 
   /* ----- the main feature ----- */
