@@ -1,6 +1,8 @@
-# FairFare 🏷️
+# Local-ish 🏷️
 
-**Know before you pay.** A tourist types, says or snaps a price ("taxi to Medina, 250"). FairFare says if it's fair compared with what locals pay, gives a phrase to bargain with (spoken out loud), and tracks the money, split between friends.
+**Know before you pay.** Local-ish helps travellers understand unfamiliar prices, record expenses, and split costs with friends. Type or say a price, such as "taxi to Medina, 250", compare it with available local reference data, and hear a bargaining phrase.
+
+The codebase uses the internal package name `fairfare`.
 
 Built for the IKU Womxn in STEM Hackathon. Demo city: Marrakech.
 
@@ -8,17 +10,17 @@ Built for the IKU Womxn in STEM Hackathon. Demo city: Marrakech.
 
 ## Start in 5 minutes
 
-You need **Node 20+** and **VS Code** (with the Claude Code extension).
+You need **Node.js 20+** and an editor such as VS Code.
 
 ```bash
-git clone <your-repo-url> fairfare
-cd fairfare
+git clone https://github.com/edntrk/local-ish.git
+cd local-ish
 npm install
 cp .env.example .env      # Windows: copy .env.example .env
 npm run dev
 ```
 
-Open **http://localhost:5173**. That's it. No keys are needed: every part runs on a fake (mock) version until you switch it on.
+Open **http://localhost:5173**. The default mock services run without API keys. Real Gemini and ElevenLabs features require the configuration below.
 
 In VS Code you can also press `Ctrl/Cmd + Shift + P` → **Run Task** → **FairFare: run app + API**.
 
@@ -29,14 +31,38 @@ In VS Code you can also press `Ctrl/Cmd + Shift + P` → **Run Task** → **Fair
 | Role | Person | Your folder | Read first |
 |---|---|---|---|
 | 🎨 Interface | Renata | `apps/web/` | [docs/ROLES.md](docs/ROLES.md#interface) |
-| 🗄️ Data | Friend 1 | `apps/api/src/data/`, `db/` | [docs/ROLES.md](docs/ROLES.md#data) |
-| 🎙️ Voice & AI | Friend 2 | `apps/api/src/voice/`, `apps/api/src/ai/` | [docs/ROLES.md](docs/ROLES.md#voice--ai) |
+| 🗄️ Data | Ranyn | `apps/api/src/data/`, `db/` | [docs/ROLES.md](docs/ROLES.md#data) |
+| 🎙️ Voice & AI | Deniz | `apps/api/src/voice/`, `apps/api/src/ai/` | [docs/ROLES.md](docs/ROLES.md#voice--ai) |
 
 The task list is in **[docs/BOARD.md](docs/BOARD.md)**.
 
 ---
 
-## Why nothing breaks when three people code at once
+## Voice & AI — implemented by Deniz
+
+- **Gemini:** understands informal and multilingual text and photo inputs, extracts the item, amount and currency, and provides short English descriptions or clarification questions. Reference data supplies price comparisons; the AI does not invent market averages.
+- **ElevenLabs:** transcribes recordings with Scribe v2 and generates spoken bargaining phrases with Multilingual v2. Speech generation and transcription have passed a live round-trip test.
+- **Validation:** structured responses, recording formats, timeouts and API errors are checked. The current Voice & AI test suite and existing project checks pass together (28 tests).
+
+The Voice & AI adapters are available in [pull request #1](https://github.com/edntrk/local-ish/pull/1). Frontend recording, editable transcripts and budget connections are separate integration changes; check the branch being used before expecting the complete flow.
+
+### Enable the real services
+
+Add your credentials to your local `.env` file:
+
+```dotenv
+AI_MODE=gemini
+GEMINI_API_KEY=your_google_gemini_key
+GEMINI_MODEL=gemini-3.8-flash
+
+VOICE_MODE=elevenlabs
+ELEVENLABS_API_KEY=your_elevenlabs_key
+ELEVENLABS_VOICE_ID=your_selected_voice_id
+```
+
+Restart the app after changing `.env`. Keep credentials private; never commit `.env`. Gemini and ElevenLabs have separate usage limits. A successful voice transcript can still be followed by a Gemini quota error during expense interpretation.
+
+## How the team works together
 
 ```
   Interface (apps/web)
@@ -52,9 +78,9 @@ The task list is in **[docs/BOARD.md](docs/BOARD.md)**.
 1. **One contract.** `packages/shared/src/contracts.ts` defines every piece of data passed between parts. Everyone builds against it.
 2. **Every part has a mock.** You can build your screens before your friends finish, and they can test without your screens.
 3. **Switches, not rewrites.** `.env` decides mock or real (`DATA_MODE`, `VOICE_MODE`, `AI_MODE`).
-4. **Automatic fallback.** If ElevenLabs or Gemini fails during the demo, the API quietly uses the mock so the app keeps working.
-5. **Contract tests.** `npm run check` proves every endpoint still returns what the contract promises. GitHub runs it on every pull request.
-6. **Protected main branch.** Nobody pushes straight to `main`. See [docs/WORKFLOW.md](docs/WORKFLOW.md).
+4. **Clear service errors.** Voice & AI adapters report invalid input, connection failures and quota limits in plain language. Mock services remain available for development; a mock response is not proof of a successful live API call.
+5. **Contract tests.** `npm run check` runs TypeScript checks and automated tests for the shared logic, API contracts and AI adapters. GitHub runs the checks on pull requests.
+6. **Pull request workflow.** Work on a separate branch and request review before merging into `main`. See [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 ---
 
