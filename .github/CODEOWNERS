@@ -1,0 +1,18 @@
+# Who must approve changes to which folder.
+# Replace the friend placeholders with their real GitHub usernames.
+
+*                         @renatarusly
+
+# The contract: everyone signs off
+/packages/shared/         @renatarusly @DATA_FRIEND_GITHUB @VOICE_FRIEND_GITHUB
+
+# Interface
+/apps/web/                @renatarusly
+
+# Data
+/apps/api/src/data/       @ranym
+/db/                      @ranym
+
+# Voice & AI
+/apps/api/src/voice/      @deniz
+/apps/api/src/ai/         @deniz

@@ -1,0 +1,7 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "FairFare: run app + API", "type": "npm", "script": "dev", "isBackground": true, "problemMatcher": [] },
+    { "label": "FairFare: check before push", "type": "npm", "script": "check", "problemMatcher": ["$tsc"] }
+  ]
+}
