@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- INTERFACE role: this is the clickable prototype. Step by step, swap its fake logic for calls in src/api.ts (see docs/BOARD.md). -->
+</head>
+<body style="margin:0">
+<title>FairFare</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one phone-width app column, sticky bottom tab bar; souk-green + saffron palette */
+:root{
+  --bg:#EDF1EC; --surface:#FFFFFF; --surface-2:#E2E9E3; --fg:#13211C; --muted:#56665F; --line:#D2DCD4;
+  --primary:#1E5B49; --on-primary:#FFFFFF; --saffron:#D9922B; --saffron-bg:#FBEFD9;
+  --good:#22764A; --good-bg:#DCF0E3; --warn:#9A6212; --warn-bg:#FBEBCB; --bad:#B23A27; --bad-bg:#F8DDD7;
+  --c1:#1E5B49; --c2:#D9922B; --c3:#5A6FCF; --c4:#B23A27;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E1613; --surface:#17221E; --surface-2:#21302A; --fg:#E7EFEA; --muted:#9BAEA5; --line:#2B3B34;
+  --primary:#62C29F; --on-primary:#0A1712; --saffron:#F0B45A; --saffron-bg:#33270F;
+  --good:#71D39C; --good-bg:#16321F; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
+  --c1:#62C29F; --c2:#F0B45A; --c3:#93A2F2; --c4:#F2907C; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0E1613; --surface:#17221E; --surface-2:#21302A; --fg:#E7EFEA; --muted:#9BAEA5; --line:#2B3B34;
+  --primary:#62C29F; --on-primary:#0A1712; --saffron:#F0B45A; --saffron-bg:#33270F;
+  --good:#71D39C; --good-bg:#16321F; --warn:#F0B45A; --warn-bg:#33270F; --bad:#F2907C; --bad-bg:#3A1D17;
+  --c1:#62C29F; --c2:#F0B45A; --c3:#93A2F2; --c4:#F2907C; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+#app{max-width:440px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:28px;font-weight:800;line-height:1.1}
+h2{font-size:20px;font-weight:700}
+h3{font-size:16px;font-weight:700}
+p{margin:0}
+.muted{color:var(--muted)}
+.eyebrow{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
+.approx{color:var(--muted);font-weight:500}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.tag{font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--surface-2);color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row > *{flex:1 1 140px;min-width:0}
+
+/* fields */
+label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:14px}
+.field input,.field select{background:var(--surface);border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font-weight:500;width:100%}
+.field input:focus,.field select:focus{border-color:var(--primary);outline:none}
+.hint{font-size:13px;color:var(--muted);font-weight:400}
+.err{font-size:13px;color:var(--bad);font-weight:600}
+.prefix{position:relative}
+.prefix span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:600}
+.prefix input{padding-left:34px}
+
+.btn{border:0;border-radius:12px;padding:13px 16px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-primary{background:var(--primary);color:var(--on-primary)}
+.btn-ghost{background:var(--surface-2);color:var(--fg)}
+.btn-block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* onboarding */
+.onb-top{display:flex;justify-content:space-between;align-items:center}
+.brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em}
+.brand b{color:var(--saffron)}
+.progress{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--primary);border-radius:99px}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice button{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:16px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.choice button[aria-pressed="true"]{border-color:var(--primary);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.choice strong{font-family:var(--display);font-size:17px}
+.choice span{font-size:13px;color:var(--muted)}
+.chip-auto{display:flex;align-items:center;gap:10px;background:var(--saffron-bg);border-radius:10px;padding:10px 12px;font-size:14px}
+.chip-auto b{font-family:var(--display);font-size:18px}
+.friends{display:flex;flex-direction:column;gap:8px;list-style:none;margin:0;padding:0}
+.friends li{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);padding:8px 8px 8px 12px;border-radius:10px;font-weight:600}
+.x{border:0;background:transparent;color:var(--muted);font-size:13px;font-weight:600;padding:6px 8px;border-radius:8px}
+.add-row{display:flex;gap:8px}
+.add-row input{flex:1;min-width:0}
+
+/* home */
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.cur{font-family:var(--display);font-weight:700;font-size:13px;border:1.5px solid var(--line);padding:6px 10px;border-radius:999px}
+.hero{background:var(--primary);color:var(--on-primary);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-30px;top:-30px;width:140px;height:140px;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--on-primary) 14%, transparent) 0 15deg, transparent 15deg 30deg);pointer-events:none}
+.hero .eyebrow{color:var(--saffron)}
+.hero h2{font-size:24px;line-height:1.15;max-width:15ch}
+.hero p{opacity:.85}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.modes button{background:color-mix(in srgb, var(--on-primary) 12%, transparent);color:var(--on-primary);border:0;border-radius:12px;padding:12px 6px;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.modes svg{width:22px;height:22px}
+.bar{height:10px;background:var(--surface-2);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--primary);border-radius:99px}
+.bar.over i{background:var(--bad)}
+.big{font-family:var(--display);font-weight:800;font-size:30px;line-height:1.05;font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
+.stats div{background:var(--surface-2);border-radius:10px;padding:10px}
+.stats dt{font-size:12px;color:var(--muted);font-weight:600}
+.stats dd{margin:2px 0 0;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
+.tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.tips li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
+.tips .dot{width:30px;height:30px;border-radius:9px;background:var(--saffron-bg);display:grid;place-items:center;font-weight:800;color:var(--warn);font-size:13px}
+.link{background:none;border:0;color:var(--primary);font-weight:700;padding:0}
+
+/* onboarding extras */
+.row.pair > *{flex:1 1 0}
+.txt{border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--surface)}
+.invite{background:var(--saffron-bg);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.link-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.link-row code{flex:1 1 160px;min-width:0;background:var(--surface);border-radius:8px;padding:10px;font-size:13px;overflow-wrap:anywhere;user-select:all}
+.status{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--saffron-bg);color:var(--warn);margin-left:6px}
+.status.ok{background:var(--good-bg);color:var(--good)}
+.when{align-self:flex-start;font-weight:700;font-size:14px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-variant-numeric:tabular-nums}
+/* money tiles */
+.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.ess summary::-webkit-details-marker{display:none}
+.ess .more-tag{font-size:13px;font-weight:700;color:var(--primary)}
+.ess[open] .more-tag{display:none}
+.money{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.money.solo{grid-template-columns:1fr}
+.tile{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px;text-align:left;display:flex;flex-direction:column;gap:8px;min-width:0}
+.tile[aria-expanded="true"]{border-color:var(--primary);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.tile .bar{display:block}
+.tile .val{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .val small{display:block;font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted)}
+.tile .more{font-size:13px;font-weight:700;color:var(--primary);margin-top:auto}
+/* chat-style check */
+.askbar{display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;padding:5px;background:var(--surface)}
+.askbar:focus-within{border-color:var(--primary)}
+.askbar input{flex:1;min-width:0;border:0;background:transparent;padding:8px 4px;outline:none;font-weight:500}
+.icon-btn{width:40px;height:40px;flex:none;border-radius:50%;border:0;background:var(--surface-2);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn.send{background:var(--primary);color:var(--on-primary)}
+.icon-btn.on{background:var(--primary);color:var(--on-primary);animation:pulse 1s ease-in-out infinite}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pills button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
+.pills button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.you-said{align-self:flex-end;background:var(--surface-2);padding:8px 12px;border-radius:14px 14px 4px 14px;max-width:85%;font-weight:500;display:flex;flex-direction:column;gap:6px}
+.you-said img{max-height:90px;border-radius:8px;align-self:flex-end}
+.q{font-weight:700}
+.actions3{display:flex;gap:8px}
+.actions3 .btn{flex:1;padding:12px 8px}
+@media (prefers-reduced-motion: reduce){ .icon-btn.on{animation:none} }
+.guide{display:flex;flex-direction:column;gap:10px}
+.need{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.need li{background:var(--saffron-bg);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.need b{font-family:var(--display);font-size:15px}
+.need span{font-size:12px;color:var(--muted)}
+.examples{display:flex;flex-direction:column;gap:6px}
+.examples button{text-align:left;border:1.5px dashed var(--line);background:var(--surface);border-radius:12px;padding:9px 12px;font-size:14px;font-weight:500}
+.examples button:hover{border-color:var(--primary)}
+.split{display:flex;flex-direction:column;gap:8px}
+.split-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.split-head select{border:0;background:transparent;color:var(--muted);font-weight:600;text-align:right;padding:4px}
+.split-list{list-style:none;margin:0;padding:0 14px;background:var(--surface-2);border-radius:14px}
+.split-list li{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.split-list li:first-child{border-top:0}
+.tick{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);background:var(--surface);color:var(--on-primary);display:grid;place-items:center;padding:0}
+.tick[aria-pressed="true"]{background:var(--primary);border-color:var(--primary)}
+.tick svg{width:16px;height:16px}
+.who{font-weight:600;min-width:0;overflow-wrap:anywhere}
+.who.off{color:var(--muted)}
+.split-list b{font-variant-numeric:tabular-nums}
+.amt-in{width:96px;text-align:right;border:1.5px solid var(--line);border-radius:8px;padding:7px 8px;background:var(--surface);font-weight:700;font-variant-numeric:tabular-nums}
+.amt-in:disabled{opacity:.4}
+/* check box on home */
+.checkbox{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;display:flex;flex-direction:column}
+.checkbox .hero{border-radius:0}
+.check-body{padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.modes button[aria-pressed="true"]{background:var(--on-primary);color:var(--primary)}
+.sub{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+/* check */
+.back{display:flex;align-items:center;gap:6px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+.chips button{flex:0 0 auto;border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px}
+.chips button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface-2);padding:4px;border-radius:12px;gap:4px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:9px 6px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg.two{grid-template-columns:1fr 1fr}
+.mic{width:84px;height:84px;border-radius:50%;border:0;background:var(--primary);color:var(--on-primary);display:grid;place-items:center;margin:4px auto 0}
+.mic svg{width:34px;height:34px}
+.mic.on{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 14px color-mix(in srgb, var(--primary) 18%, transparent)}}
+.transcript{background:var(--surface-2);border-radius:10px;padding:12px;font-style:italic}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:20px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.drop img{max-height:140px;border-radius:10px}
+.demo{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:8px 10px}
+
+.verdict{border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:8px}
+.v-great,.v-fair{background:var(--good-bg)} .v-high{background:var(--warn-bg)} .v-tooHigh{background:var(--bad-bg)}
+.pill{align-self:flex-start;font-weight:800;font-size:13px;padding:5px 11px;border-radius:999px;color:var(--surface)}
+.v-great .pill,.v-fair .pill{background:var(--good)} .v-high .pill{background:var(--warn)} .v-tooHigh .pill{background:var(--bad)}
+.range{position:relative;height:12px;border-radius:99px;background:var(--surface);margin:10px 0 18px}
+.range .ok{position:absolute;top:0;bottom:0;background:var(--good);opacity:.35;border-radius:99px}
+.range .you{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:3px;transform:translateX(-50%)}
+.range .lbl{position:absolute;top:22px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.say{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+.say .phrase{font-family:var(--display);font-weight:700;font-size:20px}
+.say .row button{flex:1 1 120px}
+
+/* budget */
+.pie-wrap{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center}
+.pie{width:120px;height:120px;border-radius:50%;position:relative}
+.pie::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--surface)}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
+.legend li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center}
+.legend i{width:10px;height:10px;border-radius:3px}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.list li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
+.list li:first-child{border-top:0}
+.list .amt{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.list small{color:var(--muted);font-size:12px}
+.ex{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:var(--saffron-bg);color:var(--warn);padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:2px}
+.owe{display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-weight:600}
+
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;max-width:calc(100% - 32px);text-align:center;z-index:6}
+@media (prefers-reduced-motion: reduce){ .mic.on{animation:none} }
+</style>
+
+<div id="app"></div>
+<div id="toast" hidden role="status"></div>
+
+<script>
+/* ---------- data (sample estimates for the demo; verify before launch) ---------- */
+const RATES={GBP:12.5,EUR:10.8,USD:9.2,IDR:0.00058}; // MAD per 1 unit of home currency (approx.)
+const SYM={GBP:'£',EUR:'€',USD:'$',IDR:'Rp'};
+const HOMES=[['United Kingdom','GBP'],['Indonesia','IDR'],['Eurozone','EUR'],['United States','USD']];
+const DESTS=[
+  {name:'Morocco (Marrakech)',cur:'MAD',curName:'Moroccan dirham',ok:true},
+  {name:'Indonesia (Bali), coming soon',cur:'IDR',ok:false},
+  {name:'Thailand (Bangkok), coming soon',cur:'THB',ok:false}];
+const STYLES={local:{label:'Cheap & local',mult:1,who:'Locals usually pay'},mid:{label:'Mid-range',mult:1.8,who:'Mid-range places usually charge'},fancy:{label:'Fancy',mult:3.5,who:'Fancy places usually charge'}};
+const r5=x=>x>20?Math.round(x/5)*5:Math.round(x);
+function rng(p){const m=STYLES[S.check.style].mult;return[r5(p.min*m),r5(p.max*m)]}
+const CATS={
+  transport:{label:'Transport',color:'var(--c1)'},
+  food:{label:'Food & drink',color:'var(--c2)'},
+  sim:{label:'SIM & data',color:'var(--c3)'},
+  shopping:{label:'Shopping',color:'var(--c4)'}};
+const PRICES=[
+  {id:'taxi-airport',cat:'transport',name:'Taxi: airport to Medina',min:100,max:150,tip:'Agree the price before you get in. Ask for the meter: "le compteur".'},
+  {id:'taxi-city',cat:'transport',name:'Petit taxi within the city',min:15,max:30,tip:'Daytime rides should use the meter. Night fares are about 50% higher.'},
+  {id:'tea',cat:'food',name:'Mint tea at a café',min:10,max:20,tip:'Prices near Jemaa el-Fna square are higher. One street back is cheaper.'},
+  {id:'tagine',cat:'food',name:'Tagine at a local restaurant',min:40,max:80,tip:'Check the menu has prices on it before you sit down.'},
+  {id:'oj',cat:'food',name:'Orange juice at Jemaa el-Fna',min:4,max:10,tip:'Stalls show the price on a sign. Ask for fresh, not mixed with water.'},
+  {id:'water',cat:'food',name:'Water, 1.5L bottle',min:5,max:8,tip:'Corner shops are cheapest. Tourist kiosks often charge double.'},
+  {id:'sim',cat:'sim',name:'Tourist SIM with data',min:30,max:60,tip:'Buy at an official Maroc Telecom, Orange or inwi shop. Bring your passport.'},
+  {id:'babouche',cat:'shopping',name:'Leather babouche slippers',min:80,max:150,tip:'Start at about half the first price and meet in the middle.'},
+  {id:'argan',cat:'shopping',name:'Argan oil, 100ml',min:60,max:120,tip:'Cooperatives sell pure oil with a label. Very cheap oil is often mixed.'}];
+
+/* ---------- state ---------- */
+const S={
+  step:1, open:null, errors:{},
+  user:{name:'Renata',email:'',age:'20',home:'GBP'},
+  trip:{dest:0,budget:600,start:'2026-10-24',end:'2026-10-30',mode:'group',friends:[{name:'Bella',status:'Joined'},{name:'Dewi',status:'Joined'}],newFriend:''},
+  expenses:[
+    {item:'Taxi: airport to Medina',cat:'transport',amt:130,shares:{me:43.33,Bella:43.33,Dewi:43.34},ex:true},
+    {item:'Mint tea at a café',cat:'food',amt:15,shares:{me:15},ex:true}],
+  check:{style:'local',text:'',step:null,err:'',cat:'transport',input:'text',itemId:'taxi-airport',amount:250,result:null,paid:null,paidAmt:0,paidCat:'transport',split:{mode:'equal',on:{},custom:{}},listening:false,transcript:'',photo:null,photoRead:false}
+};
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setPath(p,v){const k=p.split('.');let o=S;k.slice(0,-1).forEach(x=>o=o[x]);o[k[k.length-1]]=v}
+const home=()=>S.user.home;
+const fmtHome=v=>home()==='IDR'?'Rp'+Math.round(v).toLocaleString('en-GB'):SYM[home()]+v.toFixed(2);
+const mad=n=>Math.round(n).toLocaleString('en-GB')+' MAD';
+const both=n=>`${mad(n)} <span class="approx">≈ ${fmtHome(n/RATES[home()])}</span>`;
+const isGroup=()=>S.trip.mode==='group'&&S.trip.friends.length>0;
+const members=()=>isGroup()?S.trip.friends.length+1:1;
+const budgetMAD=()=>(Number(S.trip.budget)||0)*RATES[home()];
+function days(){const a=new Date(S.trip.start),b=new Date(S.trip.end);const d=Math.round((b-a)/864e5)+1;return isFinite(d)&&d>0?d:1}
+const daily=()=>budgetMAD()/days();
+function dateRange(){try{const o={day:'numeric',month:'short'};const a=new Date(S.trip.start).toLocaleDateString('en-GB',o),b=new Date(S.trip.end).toLocaleDateString('en-GB',o);return a+' – '+b}catch(e){return''}}
+const sum=a=>a.reduce((t,e)=>t+e.amt,0);
+const myOf=e=>e.shares.me||0;
+const isShared=e=>Object.keys(e.shares).some(k=>k!=='me'&&e.shares[k]>0);
+const group=()=>S.expenses.filter(isShared);
+const myShare=()=>S.expenses.reduce((t,e)=>t+myOf(e),0);
+const people=()=>[{key:'me',name:`${S.user.name||'Me'} (Me)`,id:'me'}].concat(isGroup()?S.trip.friends.map((f,i)=>({key:'f'+i,name:f.name,id:f.name})):[]);
+const owes=name=>S.expenses.reduce((t,e)=>t+(e.shares[name]||0),0);
+const item=id=>PRICES.find(p=>p.id===id);
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+
+const ICON={
+  text:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg>',
+  voice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  photo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'};
+
+/* ---------- onboarding ---------- */
+function onb(){
+  const s=S.step, pct=Math.round(s/3*100);
+  let body='';
+  if(s===1) body=`
+    <div><h1>Let's set you up</h1><p class="muted" style="margin-top:6px">We use this to show prices in your home currency.</p></div>
+    <div class="row pair">
+      <label class="field">Age<input id="f-age" type="number" min="16" data-bind="user.age" value="${esc(S.user.age)}"></label>
+      <label class="field">Where are you from?<select id="f-home" data-bind="user.home">
+        ${HOMES.map(([n,c])=>`<option value="${c}" ${c===home()?'selected':''}>${n} (${c})</option>`).join('')}</select></label>
+    </div>
+    <label class="field">Name<input id="f-name" data-bind="user.name" value="${esc(S.user.name)}" autocomplete="given-name"></label>
+    ${S.errors.name?'<p class="err">Add your name to continue.</p>':''}
+    <label class="field">Email<input id="f-email" type="email" data-bind="user.email" value="${esc(S.user.email)}" placeholder="you@example.com"></label>
+    <button class="btn btn-primary btn-block" data-action="next">Next</button>`;
+  if(s===2){const d=DESTS[S.trip.dest]; body=`
+    <div><h1>Where are you going?</h1><p class="muted" style="margin-top:6px">Your budget helps the app tell you if a price fits.</p></div>
+    <label class="field">Country<select id="f-dest" data-bind="trip.dest">
+      ${DESTS.map((x,i)=>`<option value="${i}" ${i==S.trip.dest?'selected':''} ${x.ok?'':'disabled'}>${x.name}</option>`).join('')}</select></label>
+    <div class="chip-auto"><b>${d.cur}</b><span>Local currency set automatically: ${d.curName}</span></div>
+    <label class="field">Trip budget (your own money)
+      <div class="prefix"><span>${SYM[home()]}</span><input id="f-budget" type="number" min="1" data-bind="trip.budget" value="${esc(S.trip.budget)}"></div>
+      <span class="hint">About ${mad(budgetMAD())}</span></label>
+    <div class="row">
+      <label class="field">Leaving<input id="f-start" type="date" data-bind="trip.start" value="${S.trip.start}"></label>
+      <label class="field">Coming back<input id="f-end" type="date" data-bind="trip.end" value="${S.trip.end}"></label>
+    </div>
+    ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
+    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Next</button></div>`;}
+  if(s===3) body=`
+    <div><h1>Who's coming?</h1><p class="muted" style="margin-top:6px">Travelling with friends adds a shared group pot.</p></div>
+    <div class="choice">
+      <button data-action="mode" data-mode="alone" aria-pressed="${S.trip.mode==='alone'}"><strong>Alone</strong><span>One budget, just yours</span></button>
+      <button data-action="mode" data-mode="group" aria-pressed="${S.trip.mode==='group'}"><strong>With friends</strong><span>Your pot + a group pot</span></button>
+    </div>
+    ${S.trip.mode==='group'?`
+      <div class="stack">
+        <h3>Invite your friends</h3>
+        <div class="invite">
+          <p class="hint">Send this link. Anyone who opens it joins your trip and the group pot.</p>
+          <div class="link-row"><code id="inv-link">fairfare.app/join/MRK-24OCT</code><button class="btn btn-primary" data-action="copyLink">Copy link</button></div>
+        </div>
+        <div class="stack" style="gap:6px"><span style="font-weight:600;font-size:14px">Or invite by email</span>
+          <div class="add-row"><input id="f-friend" type="email" aria-label="Friend's email" class="txt" placeholder="friend@email.com" data-bind="trip.newFriend" value="${esc(S.trip.newFriend)}"><button class="btn btn-ghost" data-action="addFriend">Send invite</button></div>
+          ${S.errors.friend?'<p class="err">Enter a full email address, like bella@gmail.com.</p>':''}
+        </div>
+        <ul class="friends">${S.trip.friends.map((f,i)=>`<li><span>${esc(f.name)} <span class="status ${f.status==='Joined'?'ok':''}">${f.status}</span></span><button class="x" data-action="rmFriend" data-i="${i}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')||'<li class="muted">No one invited yet</li>'}</ul>
+        <p class="demo">Demo: no email is sent and the link is an example.</p>
+      </div>`:''}
+    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Start my trip</button></div>`;
+  return `<div class="onb-top"><span class="brand">Fair<b>Fare</b></span><span class="eyebrow">Step ${s} of 3</span></div>
+    <div class="progress"><i style="width:${pct}%"></i></div>${body}`;
+}
+
+/* ---------- home: everything happens on this one screen ---------- */
+function homeView(){
+  return `
+  <header class="top"><h1>Hi ${esc(S.user.name||'there')},<br>welcome to Marrakech</h1><span class="cur">MAD</span></header>
+  <section class="checkbox" id="check" aria-labelledby="h-check">
+    <div class="hero">
+      <p class="eyebrow">Is this price fair?</p>
+      <h2 id="h-check">Check it before you pay</h2>
+    </div>
+    <div class="check-body">${checkBody()}</div>
+  </section>
+  ${budgetFrames()}
+  <details class="card ess">
+    <summary><h2>Local essentials</h2><span class="more-tag">Tap to open</span></summary>
+    <ul class="tips">
+      <li><span class="dot">SIM</span><div><b>Get a local SIM at the airport</b><p class="muted">Official shops only. About 30–60 MAD with data.</p></div></li>
+      <li><span class="dot">Taxi</span><div><b>Agree the fare first</b><p class="muted">Or ask for the meter. Petit taxis can carry 3 people.</p></div></li>
+      <li><span class="dot">Tip</span><div><b>Tipping is about 10%</b><p class="muted">Round up for cafés. Carry small coins for guides and porters.</p></div></li>
+    </ul>
+  </details>`;
+}
+
+const SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+const EXAMPLES=['Taxi from the airport to the Medina at night, he wants 250','Mint tea at a fancy rooftop café, 60','Leather slippers in the souk, 300'];
+const STYLE_KEYS=[['fancy',/fancy|rooftop|hotel|luxury|riad/],['mid',/mid|nice|sit.?down/]];
+const KEYS=[['taxi-airport',/airport/],['taxi-city',/taxi|cab|ride/],['tea',/tea/],['oj',/juice/],['water',/water/],['tagine',/tagine|dinner|lunch|meal|food|restaurant/],['sim',/sim|data/],['babouche',/babouche|slipper|shoe/],['argan',/argan|oil/]];
+function parseAsk(t){t=t.toLowerCase();const nums=t.match(/\d+(\.\d+)?/g);if(!nums)return null;
+  const k=KEYS.find(([,re])=>re.test(t));if(!k)return null;const st=STYLE_KEYS.find(([,re])=>re.test(t));
+  return{itemId:k[0],amount:Number(nums[nums.length-1]),style:st?st[0]:'local'}}
+
+function checkBody(){
+  const c=S.check;
+  const bar=`<div class="askbar">
+      <label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>
+      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening?'Listening…':'e.g. taxi to Medina, 250'}" aria-label="What are you paying for, and how much?" autocomplete="off">
+      <button class="icon-btn ${c.listening?'on':''}" data-action="listen" aria-label="Say it">${ICON.voice}</button>
+      <button class="icon-btn send" data-action="send" aria-label="Check this price">${SEND}</button>
+    </div>
+    <input id="photoIn" type="file" accept="image/*" hidden>`;
+  const err=c.err?`<p class="err">${c.err}</p>`:'';
+  const intro=!c.result?`<div class="guide">
+      <p class="eyebrow">A good check includes</p>
+      <ul class="need">
+        <li><b>What</b><span>taxi, tea, slippers</span></li>
+        <li><b>Price</b><span>what they asked</span></li>
+        <li><b>Situation</b><span>airport, souk, rooftop</span></li>
+      </ul>
+      <p class="eyebrow">Try one</p>
+      <div class="examples">${EXAMPLES.map((x,i)=>`<button data-action="example" data-i="${i}">${esc(x)}</button>`).join('')}</div>
+    </div>`:'';
+  return `${intro}${c.result?resultView():''}${err}${bar}`;
+}
+
+function verdictOf(p,a){const[mn,mx]=rng(p);if(a<=mx)return a<mn?'great':'fair';if(a<=mx*1.3)return'high';return'tooHigh'}
+function resultView(){
+  const c=S.check, r=c.result, p=item(r.itemId), a=r.amount, v=verdictOf(p,a);
+  const [mn,mx]=rng(p), who=STYLES[c.style].who;
+  const label={great:'Great deal',fair:'Fair price',high:'A bit high',tooHigh:'Too high'}[v];
+  const target=Math.round((mn+mx)/2/5)*5;
+  const hi=Math.max(a,mx)*1.15, pos=x=>Math.min(100,Math.max(0,x/hi*100));
+  const share=isGroup()?a/members():a;
+  const pctDay=Math.round(share/daily()*100);
+  const msg={great:`${who} ${mn}–${mx} MAD. You're paying less.`,fair:`${who} ${mn}–${mx} MAD. This is normal.`,
+    high:`${who} ${mn}–${mx} MAD. Aim for about ${target}.`,tooHigh:`${who} ${mn}–${mx} MAD. Aim for about ${target}.`}[v];
+  const darija=`Ghali bzaf! ${target} dirham, safi?`, french=`C'est trop cher. ${target} dirhams, d'accord ?`;
+  const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${a} MAD`:esc(r.said);
+  let next='';
+  if(c.step==='choose'||c.step==='bargain') next=`
+    ${c.step==='bargain'?`<div class="say">
+      <p class="eyebrow">Say this</p>
+      <p class="phrase">${darija}</p>
+      <p class="muted">"Too expensive! ${target} dirhams, okay?"</p>
+      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="ar-MA" data-text="${esc(darija)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Darija</button>
+        <button class="btn btn-ghost" data-action="speak" data-lang="fr-FR" data-text="${esc(french)}">French</button></div>
+      <p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p></div>`:''}
+    <p class="q">${c.step==='bargain'?'Did it work?':'What do you want to do?'}</p>
+    <div class="actions3">
+      ${c.step==='choose'?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
+      <button class="btn btn-primary" data-action="choose" data-next="pay">${c.step==='bargain'?'Pay':'Pay'}</button>
+      <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
+    </div>`;
+  if(c.step==='pay') next=`
+    <div class="sub">
+      <label class="field">How much did you pay?<div class="prefix"><span style="font-size:12px">MAD</span><input id="p-amt" type="number" min="0" style="padding-left:52px" data-bind="check.paidAmt" value="${c.paidAmt}"></div></label>
+      <label class="field">Category<select id="p-cat" data-bind="check.paidCat">${Object.entries(CATS).map(([k,x])=>`<option value="${k}" ${k===c.paidCat?'selected':''}>${x.label}</option>`).join('')}</select></label>
+      ${isGroup()?splitView():''}
+      <button class="btn btn-primary btn-block" data-action="save">Save to budget</button></div>`;
+  return `
+  <p class="you-said">${said}</p>
+  <div class="verdict v-${v}" aria-live="polite">
+    <span class="pill">${label}</span>
+    <p class="big">${both(a)}</p>
+    <p>${msg}</p>
+    <div class="range" aria-hidden="true">
+      <span class="ok" style="left:${pos(mn)}%;width:${pos(mx)-pos(mn)}%"></span>
+      <span class="you" style="left:${pos(a)}%"></span>
+      <span class="lbl" style="left:${pos((mn+mx)/2)}%">usual ${mn}–${mx}</span>
+    </div>
+    <p class="hint" style="color:var(--fg)">${isGroup()?`Split ${members()} ways, your share is ${mad(share)}: `:''}${pctDay}% of your ${mad(daily())} daily budget.</p>
+  </div>
+  ${next}`;
+}
+
+const TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function splitView(){
+  const sp=S.check.split, ps=people(), amt=Number(S.check.paidAmt)||0;
+  const onN=ps.filter(p=>sp.on[p.key]).length, each=onN?amt/onN:0;
+  const customTot=ps.reduce((t,p)=>t+(sp.on[p.key]?Number(sp.custom[p.key])||0:0),0);
+  return `<div class="split">
+    <div class="split-head"><h3>Split</h3>
+      <select id="s-mode" data-bind="check.split.mode" aria-label="How to split"><option value="equal" ${sp.mode==='equal'?'selected':''}>Equally</option><option value="custom" ${sp.mode==='custom'?'selected':''}>Custom amounts</option></select></div>
+    <ul class="split-list">${ps.map(p=>`<li>
+      <button class="tick" data-action="tick" data-p="${p.key}" aria-pressed="${!!sp.on[p.key]}" aria-label="Include ${esc(p.name)}">${sp.on[p.key]?TICK:''}</button>
+      <span class="who ${sp.on[p.key]?'':'off'}">${esc(p.name)}</span>
+      ${sp.mode==='equal'?`<b class="num">${sp.on[p.key]?mad(each):'–'}</b>`
+        :`<input class="amt-in" type="number" min="0" inputmode="decimal" aria-label="${esc(p.name)} pays" data-bind="check.split.custom.${p.key}" value="${sp.custom[p.key]??''}" ${sp.on[p.key]?'':'disabled'} placeholder="0">`}
+    </li>`).join('')}</ul>
+    ${sp.mode==='custom'?`<p class="hint" id="s-left">${splitLeft(amt,customTot)}</p>`:''}
+  </div>`;
+}
+function splitLeft(amt,tot){const d=Math.round(amt-tot);return d===0?'Adds up to the full amount ✓':d>0?`${mad(d)} still to assign`:`${mad(-d)} too much`}
+
+/* ---------- budget frames (on home) ---------- */
+function pie(entries){
+  const tot=entries.reduce((t,[,v])=>t+v,0);
+  if(!tot) return `<p class="muted">Nothing spent yet. Check a price and tap "Yes, I paid" to add one.</p>`;
+  let acc=0; const stops=entries.filter(([,v])=>v>0).map(([k,v])=>{const s=acc/tot*360;acc+=v;return `${CATS[k].color} ${s}deg ${acc/tot*360}deg`}).join(',');
+  return `<div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})" role="img" aria-label="Spending by category"></div>
+    <ul class="legend">${entries.filter(([,v])=>v>0).map(([k,v])=>`<li><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><b class="num">${Math.round(v/tot*100)}%</b></li>`).join('')}</ul></div>`;
+}
+function budgetFrames(){
+  const n=members(), b=budgetMAD(), used=myShare(), open=S.open;
+  const g=group(), gTot=sum(g);
+  const owedTotal=S.trip.friends.reduce((t,f)=>t+owes(f.name),0);
+  const myTile=`
+    <button class="tile" data-action="money" data-k="me" aria-expanded="${open==='me'}">
+      <span class="eyebrow">My money</span>
+      <span class="val">${Math.round(b-used).toLocaleString('en-GB')} <small>MAD left</small></span>
+      <span class="bar ${used>b?'over':''}"><i style="width:${Math.min(100,used/b*100||0)}%"></i></span>
+      <span class="hint">${mad(used)} of ${mad(b)} spent</span>
+      <span class="more">${open==='me'?'Hide breakdown':'See breakdown'}</span>
+    </button>`;
+  const groupTile=isGroup()?`
+    <button class="tile" data-action="money" data-k="group" aria-expanded="${open==='group'}">
+      <span class="eyebrow">Group money</span>
+      <span class="val">${Math.round(gTot).toLocaleString('en-GB')} <small>MAD spent together</small></span>
+      <span class="hint">Friends owe you ${mad(owedTotal)}</span>
+      <span class="more">${open==='group'?'Hide breakdown':'See breakdown'}</span>
+    </button>`:'';
+  let detail='';
+  if(open==='me'){
+    const byCat=Object.keys(CATS).map(k=>[k,S.expenses.filter(e=>e.cat===k).reduce((t,e)=>t+myOf(e),0)]);
+    const items=S.expenses.filter(e=>myOf(e)>0);
+    detail=`<section class="card">
+      <h3>Where my money went</h3>${pie(byCat)}
+      ${items.length?`<ul class="list">${items.slice().reverse().map(e=>`<li><span>${esc(e.item)}${e.ex?'<span class="ex">Example</span>':''}</span><span class="amt">${mad(myOf(e))}</span>
+        <small>${CATS[e.cat].label} · ${isShared(e)?`my share of ${mad(e.amt)}`:'just me'}</small><small class="amt">≈ ${fmtHome(myOf(e)/RATES[home()])}</small></li>`).join('')}</ul>`:''}
+    </section>`;
+  }
+  if(open==='group'){
+    const byCat=Object.keys(CATS).map(k=>[k,sum(g.filter(e=>e.cat===k))]);
+    detail=`<section class="card">
+      <h3>Where the group money went</h3>${pie(byCat)}
+      ${g.length?`<ul class="list">${g.slice().reverse().map(e=>{const w=Object.keys(e.shares).filter(k=>e.shares[k]>0).length;return `<li><span>${esc(e.item)}${e.ex?'<span class="ex">Example</span>':''}</span><span class="amt">${mad(e.amt)}</span><small>${CATS[e.cat].label} · paid by you</small><small class="amt">split ${w} ways</small></li>`}).join('')}</ul>`:''}
+      <div class="stack" style="gap:8px">
+        <h3>Settle up at the end of the trip</h3>
+        ${S.trip.friends.map(f=>{const o=owes(f.name);return `<div class="owe"><span>${esc(f.name)} ${o>0?'owes you':''}</span><span class="num">${o>0?both(o):'<span class="approx">Nothing owed</span>'}</span></div>`}).join('')}
+        <p class="hint">In this demo you paid for every group cost.</p>
+      </div>
+    </section>`;
+  }
+  return `<section class="stack" id="budget" aria-labelledby="h-money">
+    <h2 id="h-money">Money</h2>
+    <div class="money ${isGroup()?'':'solo'}">${myTile}${groupTile}</div>
+    ${detail}
+  </section>`;
+}
+
+/* ---------- render ---------- */
+function render(scroll){
+  $('#app').innerHTML = S.step<=3?onb():homeView();
+  if(scroll) window.scrollTo(0,0);
+}
+const smooth=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+function scrollToEl(sel){setTimeout(()=>{const el=document.querySelector(sel);el&&el.scrollIntoView({behavior:smooth(),block:'start'})},30)}
+
+const A={
+  next(){S.errors={};
+    if(S.step===1&&!S.user.name.trim()){S.errors.name=1;return render()}
+    if(S.step===2){if(!(Number(S.trip.budget)>0)){S.errors.trip='Add a budget above 0.';return render()}
+      if(new Date(S.trip.end)<new Date(S.trip.start)){S.errors.trip='Your return date is before you leave.';return render()}}
+    if(S.step===3&&S.trip.mode==='group'&&!S.trip.friends.length) S.trip.mode='alone';
+    S.step++; render(true)},
+  prev(){S.step--;render(true)},
+  mode(t){S.trip.mode=t.dataset.mode;render()},
+  addFriend(){const e=S.trip.newFriend.trim();S.errors.friend=0;
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){S.errors.friend=1}else{const nm=e.split('@')[0];S.trip.friends.push({name:nm.charAt(0).toUpperCase()+nm.slice(1),email:e,status:'Invited'});S.trip.newFriend='';toast('Invite sent to '+e)}
+    render();const f=$('#f-friend');f&&f.focus()},
+  copyLink(){const t='https://fairfare.app/join/MRK-24OCT';
+    const sel=()=>{const el=$('#inv-link');const r=document.createRange();r.selectNodeContents(el);const w=getSelection();w.removeAllRanges();w.addRange(r);toast('Link selected. Copy it to share')};
+    try{navigator.clipboard.writeText(t).then(()=>toast('Link copied'),sel)}catch(e){sel()}},
+  style(t){S.check.style=t.dataset.s;render()},
+  money(t){S.open=S.open===t.dataset.k?null:t.dataset.k;render()},
+  rmFriend(t){S.trip.friends.splice(+t.dataset.i,1);render()},
+  check(itemId,amount,from,said){const c=S.check;c.err='';c.result={itemId,amount,from,said};c.step='choose';
+    const p=item(itemId),v=verdictOf(p,amount),[mn,mx]=rng(p);
+    c.paidAmt=(v==='high'||v==='tooHigh')?Math.round((mn+mx)/2/5)*5:amount;c.paidCat=p.cat;c.text='';render();scrollToEl('#check')},
+  send(){const c=S.check,t=c.text.trim();if(!t){c.err='Type what it is and the price first.';return render()}
+    const r=parseAsk(t);if(!r){c.err='Add what it is and the price, like "mint tea in the souk, 30".';return render()}
+    S.check.style=r.style;A.check(r.itemId,r.amount,'text',t)},
+  example(t){const c=S.check;c.text=EXAMPLES[+t.dataset.i];c.err='';render();const el=$('#c-ask');el&&el.focus()},
+  listen(){const c=S.check;if(c.listening)return;c.listening=true;c.text='';render();
+    setTimeout(()=>{c.listening=false;c.style='local';A.check('taxi-airport',250,'voice','🎙 "Taxi from the airport to the Medina, he wants 250"')},1400)},
+  choose(t){const c=S.check,n=t.dataset.next;
+    if(n==='leave'){c.result=null;c.step=null;c.photo=null;render();toast('Okay, nothing was saved');return}
+    if(n==='pay'){const on={};people().forEach(p=>on[p.key]=true);c.split={mode:'equal',on,custom:{}}}
+    c.step=n;render()},
+  tick(t){const sp=S.check.split;sp.on[t.dataset.p]=!sp.on[t.dataset.p];render()},
+  save(){const c=S.check,p=item(c.result.itemId),amt=Number(c.paidAmt)||0,sp=c.split;c.err='';
+    const ps=people().filter(x=>!isGroup()||sp.on[x.key]);
+    if(!ps.length){c.err='Tick at least one person to split with.';return render()}
+    const shares={};
+    if(!isGroup()) shares.me=amt;
+    else if(sp.mode==='equal') ps.forEach(x=>shares[x.id]=amt/ps.length);
+    else{let tot=0;ps.forEach(x=>{const v=Number(sp.custom[x.key])||0;shares[x.id]=v;tot+=v});
+      if(Math.abs(tot-amt)>=1){c.err=`The split adds up to ${mad(tot)}, but you paid ${mad(amt)}.`;return render()}}
+    S.expenses.push({item:p.name,cat:c.paidCat,amt,shares});
+    c.result=null;c.step=null;c.photo=null;render();scrollToEl('#budget');toast('Saved to your budget')},
+  speak(t){try{if(!('speechSynthesis' in window))throw 0;const u=new SpeechSynthesisUtterance(t.dataset.text);u.lang=t.dataset.lang;u.rate=.85;
+    speechSynthesis.cancel();speechSynthesis.speak(u);toast('Playing the phrase')}catch(e){toast("Voice isn't available in this browser")}}
+};
+function readPhoto(dataUrl){S.check.photo=dataUrl;S.check.style='local';A.check('babouche',300,'photo','')}
+
+document.addEventListener('click',e=>{const t=e.target.closest('[data-action]');if(t&&A[t.dataset.action]){e.preventDefault();A[t.dataset.action](t)}});
+document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return;
+  let v=t.value; if(t.dataset.bind==='trip.dest') v=Number(v);
+  setPath(t.dataset.bind,v);
+  if(t.tagName==='SELECT'){ if(t.dataset.bind==='check.itemId') S.check.result=null; render() }
+  else if(t.classList.contains('amt-in')){const sp=S.check.split,ps=people(),tot=ps.reduce((x,p)=>x+(sp.on[p.key]?Number(sp.custom[p.key])||0:0),0);const h=$('#s-left');if(h)h.textContent=splitLeft(Number(S.check.paidAmt)||0,tot)}
+  else if(t.id==='c-amt'){const h=$('#c-amt-home');if(h)h.textContent='≈ '+fmtHome((Number(v)||0)/RATES[home()])}
+  else if(t.id==='f-budget'){const h=t.closest('label').querySelector('.hint');if(h)h.textContent='About '+mad(budgetMAD())}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f-friend'){e.preventDefault();A.addFriend()}if(e.key==='Enter'&&e.target.id==='c-ask'){e.preventDefault();A.send()}});
+document.addEventListener('change',e=>{if(e.target.id==='p-amt')render();if(e.target.id==='photoIn'&&e.target.files[0]){const r=new FileReader();r.onload=()=>readPhoto(r.result);r.readAsDataURL(e.target.files[0])}});
+render();
+</script>
+
+</body>
+</html>

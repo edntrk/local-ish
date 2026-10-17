@@ -1,0 +1,23 @@
+{
+  "name": "fairfare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c green,yellow \"npm run dev -w @fairfare/api\" \"npm run dev -w @fairfare/web\"",
+    "dev:api": "npm run dev -w @fairfare/api",
+    "dev:web": "npm run dev -w @fairfare/web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "check": "npm run typecheck && npm test",
+    "db:setup": "node scripts/db-setup.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "9.1.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  }
+}
