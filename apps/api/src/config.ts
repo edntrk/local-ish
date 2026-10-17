@@ -1,4 +1,8 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import { fileURLToPath } from "node:url";
+
+// Always read the repo-root .env: npm runs this from apps/api, where plain "dotenv/config" finds nothing.
+loadEnv({ path: fileURLToPath(new URL("../../../.env", import.meta.url)) });
 
 const pick = <T extends string>(v: string | undefined, allowed: readonly T[], fallback: T): T =>
   (allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback;

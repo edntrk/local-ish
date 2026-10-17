@@ -11,8 +11,8 @@ export class MockDataStore implements DataStore {
   constructor() {
     // a demo trip so the Interface has something to show straight away
     const demo: Trip = {
-      id: "demo", city: "marrakech", currency: "MAD", homeCurrency: "GBP", rateToLocal: 12.5, budgetHome: 600,
-      start: "2026-10-24", end: "2026-10-30", inviteCode: "MRK-24OCT",
+      id: "demo", city: "bali", currency: "IDR", homeCurrency: "GBP", rateToLocal: 21500, budgetHome: 600,
+      start: "2026-10-24", end: "2026-10-30", inviteCode: "BAL-24OCT",
       people: [
         { id: "me", name: "Renata", isMe: true, status: "joined" },
         { id: "bella", name: "Bella", isMe: false, status: "joined" },
@@ -20,14 +20,14 @@ export class MockDataStore implements DataStore {
       ],
     };
     this.trips.set(demo.id, demo);
-    this.expenses.push({ id: "e-demo", tripId: "demo", item: "Taxi: airport to Medina", category: "transport", amount: 130, paidBy: "me", shares: { me: 43.34, bella: 43.33, dewi: 43.33 }, createdAt: new Date().toISOString() });
+    this.expenses.push({ id: "e-demo", tripId: "demo", item: "Taxi: airport to Seminyak", category: "transport", amount: 350000, paidBy: "me", shares: { me: 116666.67, bella: 116666.67, dewi: 116666.66 }, createdAt: new Date().toISOString() });
   }
 
-  async listPrices(city: string) { return SEED_PRICES.filter((p) => p.city === city); }
-  async getPrice(city: string, itemId: string) { return SEED_PRICES.find((p) => p.city === city && p.id === itemId) ?? null; }
+  async listPrices(city: string) { return SEED_PRICES.filter((p) => p.city === city.toLowerCase()); }
+  async getPrice(city: string, itemId: string) { return SEED_PRICES.find((p) => p.city === city.toLowerCase() && p.id === itemId) ?? null; }
 
   async createTrip(t: Omit<Trip, "id" | "inviteCode">) {
-    const trip: Trip = { ...t, id: randomUUID(), inviteCode: "MRK-" + Math.random().toString(36).slice(2, 7).toUpperCase() };
+    const trip: Trip = { ...t, id: randomUUID(), inviteCode: "BAL-" + Math.random().toString(36).slice(2, 7).toUpperCase() };
     this.trips.set(trip.id, trip);
     return trip;
   }

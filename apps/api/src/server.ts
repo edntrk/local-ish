@@ -7,7 +7,8 @@ import { MockVoice } from "./voice/mock";
 import { ElevenLabsVoice } from "./voice/elevenlabs";
 import { MockAskParser } from "./ai/mock";
 import { GeminiAskParser } from "./ai/gemini";
-import type { AskParser, DataStore, VoiceService } from "./ports";
+import { GeminiAdvisor } from "./ai/gemini-advice";
+import type { AdviceWriter, AskParser, DataStore, VoiceService } from "./ports";
 
 const warn = (m: string) => console.warn("⚠️  " + m);
 
@@ -28,12 +29,13 @@ if (config.voiceMode === "elevenlabs") {
 }
 
 let ai = new MockAskParser() as AskParser;
+let advisor: AdviceWriter | undefined; // no advisor = the template advice from checkPrice
 let aiMode = "mock";
 if (config.aiMode === "gemini") {
-  if (config.geminiKey) { ai = withFallback<AskParser>("ai", new GeminiAskParser(config.geminiKey), new MockAskParser()); aiMode = "gemini (falls back to mock)"; }
+  if (config.geminiKey) { ai = withFallback<AskParser>("ai", new GeminiAskParser(config.geminiKey), new MockAskParser()); aiMode = "gemini (falls back to mock)"; advisor = new GeminiAdvisor(config.geminiKey); }
   else warn("AI_MODE=gemini but GEMINI_API_KEY is empty. Using mock AI.");
 }
 
-createApp({ data, voice, ai, modes: { data: dataMode, voice: voiceMode, ai: aiMode } }).listen(config.port, () => {
+createApp({ data, voice, ai, advisor, modes: { data: dataMode, voice: voiceMode, ai: aiMode } }).listen(config.port, () => {
   console.log(`FairFare API on http://localhost:${config.port}  ·  data=${dataMode}  voice=${voiceMode}  ai=${aiMode}`);
 });

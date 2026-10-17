@@ -24,7 +24,7 @@ const Reply = z.object({
 });
 
 export class GeminiAskParser implements AskParser {
-  constructor(private apiKey: string, private model = process.env.GEMINI_MODEL ?? "gemini-3.8-flash") {}
+  constructor(private apiKey: string, private model = process.env.GEMINI_MODEL ?? "gemini-3.5-flash") {}
 
   private async understand(req: ParseRequest, prices: PriceItem[]) {
     if (!this.apiKey.trim()) throw new ParseError("Gemini is not configured. Please add the API key.");

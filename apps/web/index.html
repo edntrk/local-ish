@@ -158,7 +158,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .fx-amt input:focus-visible{outline:none}
 .fx-amt:focus-within{box-shadow:0 2px 0 var(--lime)}
 .fx-amt output{display:block}
-.fx-amt .sm{font-size:26px}
+.fx-cards.sm .fx-amt input,.fx-cards.sm .fx-amt output{font-size:26px} /* both amounts shrink together so the two currencies always match */
 .fx-sub{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink-muted)}
 .fx-swap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:#fff;color:#0E0E0E;display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
 .fx-swap svg{width:22px;height:22px}
@@ -200,6 +200,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .askbar input{flex:1;min-width:0;border:0;background:transparent;padding:8px 4px;outline:none;font-weight:500}
 .icon-btn{width:40px;height:40px;flex:none;border-radius:50%;border:0;background:var(--surface-2);color:var(--fg);display:grid;place-items:center;cursor:pointer}
 .icon-btn svg{width:20px;height:20px}
+.icon-btn[hidden]{display:none}
 .icon-btn.send{background:var(--primary);color:var(--on-primary)}
 .icon-btn.on{background:var(--primary);color:var(--on-primary);animation:pulse 1s ease-in-out infinite}
 .pills{display:flex;gap:6px;flex-wrap:wrap}
@@ -267,6 +268,10 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .range .ok{position:absolute;top:0;bottom:0;background:var(--good);opacity:.35;border-radius:99px}
 .range .you{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:3px;transform:translateX(-50%)}
 .range .lbl{position:absolute;top:22px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
+.plan{display:flex;gap:8px;list-style:none;margin:0;padding:0}
+.plan li{flex:1;background:var(--surface);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.plan small{font-size:11px;font-weight:600;color:var(--muted)}
+.plan b{font-family:var(--display);font-size:18px}
 .say{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
 .say .phrase{font-family:var(--display);font-weight:700;font-size:20px}
 .say .row button{flex:1 1 120px}
@@ -278,6 +283,8 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
 .legend li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center}
 .legend i{width:10px;height:10px;border-radius:3px}
+.cat-amt{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+.cat-amt small{font-size:12px;color:var(--muted)}
 .list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
 .list li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line)}
 .list li:first-child{border-top:0}
@@ -299,9 +306,6 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 @media (prefers-reduced-motion: reduce){button,.icon-btn,.fx-pick{transition:none}button:hover,.icon-btn:hover,.fx-pick:hover{transform:none!important}}
 /* welcome transition (full screen, then slides into home) */
 .welcome{position:fixed;inset:0;z-index:5;background:var(--lime);color:#0A0A0A;display:flex;flex-direction:column;align-items:center;padding:14vh 24px 0;text-align:center;overflow:hidden;cursor:pointer}
-.w-check{width:92px;height:92px}
-.w-check circle{stroke-dasharray:330;stroke-dashoffset:330;animation:draw .7s .15s ease-out forwards}
-.w-check path{stroke-dasharray:80;stroke-dashoffset:80;animation:draw .45s .75s ease-out forwards}
 .w-title{font-size:40px;line-height:1.1;margin-top:28px;animation:rise .6s .9s both}
 .w-sub{margin-top:12px;font-size:17px;font-weight:500;animation:rise .6s 1.2s both}
 .sky{position:absolute;left:0;right:0;bottom:0;margin:0 auto;width:min(100%,520px);height:auto;overflow:visible;animation:rise .9s .4s both}
@@ -328,6 +332,7 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 <div id="dbg" aria-label="Debug: switch page"></div>
 <button id="theme" type="button"></button>
 
+<script type="module">import { api } from "./src/api.ts"; window.fairfareApi = api;</script>
 <script>
 /* ---------- data (sample estimates for the demo; verify before launch) ---------- */
 const RATES={GBP:21500,EUR:18500,USD:16300,IDR:1,AUD:10700,CAD:11800,AED:4400,SGD:12600,MYR:3800,INR:190,JPY:108,TRY:400,THB:480}; // IDR per 1 unit of that currency (approx.)
@@ -389,30 +394,39 @@ const fmtNum=(v,c)=>(NODEC.includes(c)||v>=1000?Math.round(v):Math.round(v*100)/
 function rateLine(){if(home()===dest().cur)return'Same currency, nothing to convert';let r=RATES[home()]/RATES[dest().cur],u=1;while(r<1&&u<1e6){u*=10;r*=10}
   return `${symTxt(home())}${u.toLocaleString('en-GB')} = ${symTxt(dest().cur)}${r>=100?Math.round(r).toLocaleString('en-GB'):r.toFixed(4)}`}
 const niceRound=x=>{const p=Math.pow(10,Math.floor(Math.log10(x))-1);return Math.round(x/p)*p};
-const defaultBudget=()=>niceRound(8000000/RATES[home()]); // about Rp8,000,000 in the visitor's own money
+const defaultBudget=()=>niceRound(8000000/RATES[home()])*members(); // about Rp8,000,000 each, in the visitor's own money
 // onboarding step 1: all four fields filled, 18 or over, real-looking email
 const emailOk=e=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e.trim());
 function ageMsg(){const a=S.user.age;if(a==='')return'';const n=Number(a);
   if(!Number.isInteger(n)||n>120)return'Enter your age in whole years.';
   return n<18?'You need to be 18 or over to use local-ish.':''}
 const onb1Ok=()=>!!(S.user.name.trim()&&cty()&&S.user.age!==''&&!ageMsg()&&emailOk(S.user.email));
-const onb2Ok=()=>dest().ok&&Number(S.trip.budget)>0;
+const onb3Ok=()=>dest().ok&&Number(S.trip.budget)>0;
 // typing doesn't re-render (that would drop focus), so update the live bits in place
 function syncOnb(){
   if(S.step===1){const a=$('#age-err'),m=ageMsg();if(a){a.textContent=m;a.hidden=!m}
     const e=$('#email-err');if(e)e.hidden=!S.user.email||emailOk(S.user.email);
     const n=$('#onb-next');if(n)n.disabled=!onb1Ok()}
-  if(S.step===2){const bi=$('#f-budget');if(bi)bi.style.width=(bi.value.length+.5)+'ch'; // hugs the digits so the currency sign stays next to them
-    const o=$('#fx-out');if(o){const t=fmtNum(destAmt(),dest().cur);o.textContent=t;o.classList.toggle('sm',t.length>9)}
+  if(S.step===3){const bi=$('#f-budget');if(bi)bi.style.width=(bi.value.length+.5)+'ch'; // hugs the digits so the currency sign stays next to them
+    const o=$('#fx-out');if(o)o.textContent=fmtNum(destAmt(),dest().cur);
+    const fc=$('.fx-cards');if(fc)fc.classList.toggle('sm',fxSmall())
     const d=$('#fx-day');if(d)d.textContent='≈ '+fmtNum(destAmt()/days(),dest().cur)+' '+dest().cur+' a day'
-    const n=$('#onb-next');if(n)n.disabled=!onb2Ok()}}
+    const e=$('#fx-each');if(e)e.textContent=eachTxt();
+    const n=$('#onb-next');if(n)n.disabled=!onb3Ok()}}
+// the home and destination amounts always share one size: both shrink when either gets long
+const fxSmall=()=>Math.max(String(Number(S.trip.budget)||0).length,fmtNum(destAmt(),dest().cur).length)>9;
+const budgetLabel=()=>isGroup()?'Total trip budget for your group':'Your trip budget';
+const eachTxt=()=>`≈ ${symTxt(home())}${fmtNum(perPersonHome(),home())} each for ${members()} people`;
 const loc=n=>'Rp'+Math.round(n).toLocaleString('en-GB');
 const rangeTxt=(a,b)=>'Rp'+a.toLocaleString('en-GB')+'–'+b.toLocaleString('en-GB');
 const kTxt=n=>n>=1000?Math.round(n/1000)+'k':String(n);
 const both=n=>`${loc(n)} <span class="approx">≈ ${fmtHome(n/RATES[home()])}</span>`;
 const isGroup=()=>S.trip.mode==='group'&&S.trip.friends.length>0;
 const members=()=>isGroup()?S.trip.friends.length+1:1;
-const budgetLoc=()=>(Number(S.trip.budget)||0)*RATES[home()];
+// The budget box holds the WHOLE group's budget (or just yours when alone). Everything personal is that total split by head count.
+const groupBudgetLoc=()=>(Number(S.trip.budget)||0)*RATES[home()];
+const perPersonHome=()=>(Number(S.trip.budget)||0)/members();
+const budgetLoc=()=>groupBudgetLoc()/members(); // my share of the budget, in rupiah
 function days(){const a=new Date(S.trip.start),b=new Date(S.trip.end);const d=Math.round((b-a)/864e5)+1;return isFinite(d)&&d>0?d:1}
 const daily=()=>budgetLoc()/days();
 function dateRange(){try{const o={day:'numeric',month:'short'};const a=new Date(S.trip.start).toLocaleDateString('en-GB',o),b=new Date(S.trip.end).toLocaleDateString('en-GB',o);return a+' – '+b}catch(e){return''}}
@@ -457,36 +471,7 @@ function onb(){
       <span class="err" id="email-err" hidden>Enter a full email address, like you@example.com.</span></label>
     <button class="btn btn-primary btn-block" id="onb-next" data-action="next" ${onb1Ok()?'':'disabled'}>Next</button>
     <button class="link skip" data-action="skip">Skip to homepage</button>`;}
-  if(s===2){const d=dest(),c=cty(),cur=home(),t=fmtNum(destAmt(),d.cur); body=`
-    <div><h1>Where are you going?</h1><p class="muted" style="margin-top:6px">Pick a country and we'll show your budget in local money.</p></div>
-    <div class="fx">
-      <p class="fx-rate">${TREND}<span id="fx-rate">${rateLine()}</span></p>
-      <div class="fx-cards">
-        <div class="fx-card from">
-          <div class="fx-row">
-            ${fxPick(c.flag,c.name,'user.country','Your home country',COUNTRIES.map(x=>`<option value="${x.code}" ${x.code===c.code?'selected':''}>${x.name}</option>`).join(''))}
-            <div class="fx-amt"><span class="fx-sym">${SYM[cur]}</span><input id="f-budget" type="number" inputmode="decimal" min="1" data-bind="trip.budget" value="${esc(S.trip.budget)}" style="width:${String(S.trip.budget).length+.5}ch" aria-label="Your trip budget in ${cur}"></div>
-          </div>
-          <div class="fx-sub"><span>Your trip budget in ${cur}</span></div>
-        </div>
-        <span class="fx-swap" aria-hidden="true">${DOWN}</span>
-        <div class="fx-card to">
-          <div class="fx-row">
-            ${fxPick(d.flag,d.short,'trip.dest','Where you are going',DESTS.map((x,i)=>`<option value="${i}" ${i==S.trip.dest?'selected':''}>${x.name}</option>`).join(''))}
-            <div class="fx-amt"><span class="fx-sym">+${SYM[d.cur]}</span><output id="fx-out" class="${t.length>9?'sm':''}">${t}</output></div>
-          </div>
-          <div class="fx-sub"><span>${d.curName}</span><span id="fx-day">≈ ${fmtNum(destAmt()/days(),d.cur)} ${d.cur} a day</span></div>
-        </div>
-      </div>
-    </div>
-    ${d.ok?'':`<p class="err">Only Indonesia (Bali) is open for now. Pick it to continue.</p>`}
-    <div class="row">
-      <label class="field">Leaving<input id="f-start" type="date" data-bind="trip.start" value="${S.trip.start}"></label>
-      <label class="field">Coming back<input id="f-end" type="date" data-bind="trip.end" value="${S.trip.end}"></label>
-    </div>
-    ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
-    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" id="onb-next" data-action="next" ${onb2Ok()?'':'disabled'}>Next</button></div>`;}
-  if(s===3) body=`
+  if(s===2) body=`
     <div><h1>Who's coming?</h1><p class="muted" style="margin-top:6px">Travelling with friends adds a shared group pot.</p></div>
     <div class="choice">
       <button data-action="mode" data-mode="alone" aria-pressed="${S.trip.mode==='alone'}"><strong>Alone</strong><span>One budget, just yours</span></button>
@@ -506,7 +491,37 @@ function onb(){
         <ul class="friends">${S.trip.friends.map((f,i)=>`<li><span>${esc(f.name)} <span class="status ${f.status==='Joined'?'ok':''}">${f.status}</span></span><button class="x" data-action="rmFriend" data-i="${i}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')||'<li class="muted">No one invited yet</li>'}</ul>
         <p class="demo">Demo: no email is sent and the link is an example.</p>
       </div>`:''}
-    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Start my trip</button></div>`;
+    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Next</button></div>`;
+  if(s===3){const d=dest(),c=cty(),cur=home(),t=fmtNum(destAmt(),d.cur); body=`
+    <div><h1>Where are you going?</h1><p class="muted" style="margin-top:6px">Pick a country and we'll show your budget in local money.</p></div>
+    <div class="fx">
+      <p class="fx-rate">${TREND}<span id="fx-rate">${rateLine()}</span></p>
+      <div class="fx-cards ${fxSmall()?'sm':''}">
+        <div class="fx-card from">
+          <div class="fx-row">
+            ${fxPick(c.flag,c.name,'user.country','Your home country',COUNTRIES.map(x=>`<option value="${x.code}" ${x.code===c.code?'selected':''}>${x.name}</option>`).join(''))}
+            <div class="fx-amt"><span class="fx-sym">${SYM[cur]}</span><input id="f-budget" type="number" inputmode="decimal" min="1" data-bind="trip.budget" value="${esc(S.trip.budget)}" style="width:${String(S.trip.budget).length+.5}ch" aria-label="${budgetLabel()} in ${cur}"></div>
+          </div>
+          <div class="fx-sub"><span>${budgetLabel()}</span></div>
+          ${isGroup()?`<div class="fx-sub"><span id="fx-each">${eachTxt()}</span></div>`:''}
+        </div>
+        <span class="fx-swap" aria-hidden="true">${DOWN}</span>
+        <div class="fx-card to">
+          <div class="fx-row">
+            ${fxPick(d.flag,d.short,'trip.dest','Where you are going',DESTS.map((x,i)=>`<option value="${i}" ${i==S.trip.dest?'selected':''}>${x.name}</option>`).join(''))}
+            <div class="fx-amt"><span class="fx-sym">${SYM[d.cur]}</span><output id="fx-out">${t}</output></div>
+          </div>
+          <div class="fx-sub"><span>${d.curName}</span><span id="fx-day">≈ ${fmtNum(destAmt()/days(),d.cur)} ${d.cur} a day</span></div>
+        </div>
+      </div>
+    </div>
+    ${d.ok?'':`<p class="err">Only Indonesia (Bali) is open for now. Pick it to continue.</p>`}
+    <div class="row">
+      <label class="field">Leaving<input id="f-start" type="date" data-bind="trip.start" value="${S.trip.start}"></label>
+      <label class="field">Coming back<input id="f-end" type="date" data-bind="trip.end" value="${S.trip.end}"></label>
+    </div>
+    ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
+    <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" id="onb-next" data-action="next" ${onb3Ok()?'':'disabled'}>Start my trip</button></div>`;}
   return `<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">Step ${s} of 3</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>${body}`;
 }
@@ -519,7 +534,6 @@ const SKY=`<svg class="sky" viewBox="0 0 440 180" preserveAspectRatio="xMidYMax 
     <path transform="translate(35 0)" d="M60 152q8-40-2-82M58 70q-22-6-36 8M58 70q-14-18-34-16M58 70q4-22 26-24M58 70q22-6 36 6M58 70q16 6 20 20"/>
     <path transform="translate(-37 0)" d="M382 152q-8-40 2-82M384 70q22-6 36 8M384 70q14-18 34-16M384 70q-4-22-26-24M384 70q-22-6-36 6M384 70q-16 6-20 20"/></g></svg>`;
 function welcomeView(){return `<section class="welcome" data-action="enterHome" role="button" aria-label="Welcome to Indonesia. Tap to continue">
-  <svg class="w-check" viewBox="0 0 120 120" fill="none" stroke="#0A0A0A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="60" cy="60" r="52"/><path d="M36 62l16 16 32-34"/></svg>
   <h1 class="w-title">Welcome to<br>Indonesia!</h1>
   <p class="w-sub">Hello, ${esc(S.user.name||'there')}</p>${SKY}</section>`}
 
@@ -532,7 +546,6 @@ function homeView(){
     <div class="hero">
       <div><p class="eyebrow">Is this price fair?</p>
       <h2 id="h-check">Check it before you pay</h2></div>
-      <span class="badge-sq" aria-hidden="true">${TICK}</span>
     </div>
     <div class="check-body">${checkBody()}</div>
   </section>
@@ -555,14 +568,17 @@ function parseAsk(t){t=t.toLowerCase();const nums=t.match(/\d+(\.\d+)?/g);if(!nu
   const k=KEYS.find(([,re])=>re.test(t));if(!k)return null;const st=STYLE_KEYS.find(([,re])=>re.test(t));
   return{itemId:k[0],amount:Number(nums[nums.length-1]),style:st?st[0]:'local'}}
 
+const PHOTO_ENABLED=false; // photo checks are paused: flip to true to bring the camera button back
+
 function checkBody(){
   const c=S.check;
   const bar=`<div class="askbar">
-      <label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>
-      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening?'Listening…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off">
-      <button class="icon-btn ${c.listening?'on':''}" data-action="listen" aria-label="Say it">${ICON.voice}</button>
+      ${PHOTO_ENABLED?`<label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>`:''}
+      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening?'Listening…':c.hearing?'Processing…':c.busy?'Checking…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off" ${c.busy?'disabled':''}>
+      <button class="icon-btn ${c.listening?'on':''}" data-action="listen" aria-label="${c.listening?'Stop recording':'Say it'}" aria-pressed="${c.listening}" ${c.hearing||c.busy?'disabled':''}>${ICON.voice}</button>
+      <button class="icon-btn send" id="c-send" data-action="send" aria-label="Check this price" ${c.text.trim()?'':'hidden'}>${SEND}</button>
     </div>
-    <input id="photoIn" type="file" accept="image/*" hidden>`;
+    ${PHOTO_ENABLED?'<input id="photoIn" type="file" accept="image/*" hidden>':''}`;
   const err=c.err?`<p class="err">${c.err}</p>`:'';
   const intro=!c.result?`<div class="guide">
       <p class="eyebrow">A good check includes</p>
@@ -578,45 +594,76 @@ function checkBody(){
 }
 
 function verdictOf(p,a){const[mn,mx]=rng(p);if(a<=mx)return a<mn?'great':'fair';if(a<=mx*1.3)return'high';return'tooHigh'}
+// everything the verdict card needs. If the API answered, its range/verdict/target/plan win ("the database decides").
+function calc(r){
+  const c=S.check,p=item(r.itemId),a=r.amount,ap=r.api;
+  const [mn,mx]=ap?[ap.range.min,ap.range.max]:rng(p);
+  const v=ap?ap.verdict:verdictOf(p,a);
+  const target=ap?ap.target:r5((mn+mx)/2);
+  const clamp=x=>Math.min(mx,Math.max(mn,Number(x)||0));
+  const pp=ap&&ap.plan||{}; // plan numbers must stay inside the usual range, whatever the AI says
+  const plan={openWith:clamp(pp.openWith||mn),aimFor:clamp(pp.aimFor||target),walkAwayAbove:clamp(pp.walkAwayAbove||mx)};
+  const ribu=Math.round(plan.openWith/1000);
+  const tpl={local:`Wah, mahal banget! ${ribu} ribu saja, boleh?`,polite:`Maaf, bisa ${ribu} ribu saja, Pak?`,english:`Wow, that's very expensive! Just ${loc(plan.openWith)}, okay?`};
+  const ph=ap&&ap.phrase&&/^id/.test(ap.phrase.lang||ap.phrase.localLang||'')?{local:ap.phrase.local||tpl.local,polite:ap.phrase.polite||tpl.polite,english:ap.phrase.english||tpl.english}:tpl;
+  return{c,p,a,v,mn,mx,target,plan,ph,advice:ap&&ap.advice||''}}
+
+const payForm=()=>{const c=S.check;return `<div class="sub">
+      <label class="field">How much did you pay?<div class="prefix"><span style="font-size:12px">IDR</span><input id="p-amt" type="number" min="0" style="padding-left:52px" data-bind="check.paidAmt" value="${c.paidAmt}"></div></label>
+      <label class="field">Category<select id="p-cat" data-bind="check.paidCat">${Object.entries(CATS).map(([k,x])=>`<option value="${k}" ${k===c.paidCat?'selected':''}>${x.label}</option>`).join('')}</select></label>
+      ${isGroup()?splitView():''}
+      <button class="btn btn-primary btn-block" data-action="save">Save to budget</button></div>`};
+
+function unknownView(){
+  const c=S.check,r=c.result,a=r.amount;
+  const next=c.step==='pay'?payForm():`<p class="q">What do you want to do?</p>
+    <div class="actions3">
+      <button class="btn btn-primary" data-action="choose" data-next="pay">Pay</button>
+      <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
+    </div>`;
+  return `<p class="you-said">${esc(r.said)}</p>
+  <div class="verdict v-fair" aria-live="polite">
+    <p class="big">${both(a)}</p>
+    <p>We don't have local prices for that yet.</p>
+    <p class="hint" style="color:var(--fg)">You can still log it so your budget stays right.</p>
+  </div>
+  ${next}`}
+
 function resultView(){
-  const c=S.check, r=c.result, p=item(r.itemId), a=r.amount, v=verdictOf(p,a);
-  const [mn,mx]=rng(p), who=STYLES[c.style].who;
+  const r=S.check.result;if(!item(r.itemId))return unknownView();
+  const {c,p,a,v,mn,mx,target,plan,ph,advice}=calc(r), who=STYLES[c.style].who;
   const label={great:'Great deal',fair:'Fair price',high:'A bit high',tooHigh:'Too high'}[v];
-  const target=r5((mn+mx)/2);
   const hi=Math.max(a,mx)*1.15, pos=x=>Math.min(100,Math.max(0,x/hi*100));
   const share=isGroup()?a/members():a;
   const pctDay=Math.round(share/daily()*100);
-  const msg={great:`${who} ${rangeTxt(mn,mx)}. You're paying less.`,fair:`${who} ${rangeTxt(mn,mx)}. This is normal.`,
-    high:`${who} ${rangeTxt(mn,mx)}. Aim for about ${loc(target)}.`,tooHigh:`${who} ${rangeTxt(mn,mx)}. Aim for about ${loc(target)}.`}[v];
-  const ribu=Math.round(target/1000), indo=`Wah, mahal banget! ${ribu} ribu saja, boleh?`, polite=`Permisi, boleh kurang? ${ribu} ribu saja ya?`;
+  const bargainable=v==='high'||v==='tooHigh';
+  const msg=advice||{great:`${who} ${rangeTxt(mn,mx)}. You're paying less.`,fair:`${who} ${rangeTxt(mn,mx)}. This is normal.`,
+    high:`${who} ${rangeTxt(mn,mx)}. Open with ${loc(plan.openWith)} and aim for about ${loc(target)}.`,tooHigh:`${who} ${rangeTxt(mn,mx)}. Open with ${loc(plan.openWith)} and aim for about ${loc(target)}.`}[v];
+  const planHtml=bargainable?`<ul class="plan" aria-label="Bargaining plan"><li><small>Start</small><b>${kTxt(plan.openWith)}</b></li><li><small>Aim</small><b>${kTxt(plan.aimFor)}</b></li><li><small>Walk away</small><b>${kTxt(plan.walkAwayAbove)}+</b></li></ul>`:'';
+  const indo=ph.local, polite=ph.polite;
   const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${loc(a)}`:esc(r.said);
   let next='';
   if(c.step==='choose'||c.step==='bargain') next=`
     ${c.step==='bargain'?`<div class="say">
       <p class="eyebrow">Say this</p>
       <p class="phrase">${indo}</p>
-      <p class="muted">"Wow, that's very expensive! Just ${loc(target)}, okay?"</p>
+      <p class="muted">"${esc(ph.english)}"</p>
       <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(indo)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button>
         <button class="btn btn-ghost" data-action="speak" data-lang="id-ID" data-text="${esc(polite)}">Polite version</button></div>
-      <p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p></div>`:''}
+      ${c.realVoice?'':`<p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p>`}</div>`:''}
     <p class="q">${c.step==='bargain'?'Did it work?':'What do you want to do?'}</p>
     <div class="actions3">
-      ${c.step==='choose'?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
+      ${c.step==='choose'&&bargainable?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
       <button class="btn btn-primary" data-action="choose" data-next="pay">${c.step==='bargain'?'Pay':'Pay'}</button>
       <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
     </div>`;
-  if(c.step==='pay') next=`
-    <div class="sub">
-      <label class="field">How much did you pay?<div class="prefix"><span style="font-size:12px">IDR</span><input id="p-amt" type="number" min="0" style="padding-left:52px" data-bind="check.paidAmt" value="${c.paidAmt}"></div></label>
-      <label class="field">Category<select id="p-cat" data-bind="check.paidCat">${Object.entries(CATS).map(([k,x])=>`<option value="${k}" ${k===c.paidCat?'selected':''}>${x.label}</option>`).join('')}</select></label>
-      ${isGroup()?splitView():''}
-      <button class="btn btn-primary btn-block" data-action="save">Save to budget</button></div>`;
+  if(c.step==='pay') next=payForm();
   return `
   <p class="you-said">${said}</p>
   <div class="verdict v-${v}" aria-live="polite">
     <span class="pill">${label}</span>
     <p class="big">${both(a)}</p>
-    <p>${msg}</p>
+    <p>${msg}</p>${planHtml}
     <div class="range" aria-hidden="true">
       <span class="ok" style="left:${pos(mn)}%;width:${pos(mx)-pos(mn)}%"></span>
       <span class="you" style="left:${pos(a)}%"></span>
@@ -652,39 +699,31 @@ function pie(entries){
   if(!tot) return `<p class="muted">Nothing spent yet. Check a price and tap "Yes, I paid" to add one.</p>`;
   let acc=0; const stops=entries.filter(([,v])=>v>0).map(([k,v])=>{const s=acc/tot*360;acc+=v;return `${CATS[k].color} ${s}deg ${acc/tot*360}deg`}).join(',');
   return `<div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})" role="img" aria-label="Spending by category"></div>
-    <ul class="legend">${entries.filter(([,v])=>v>0).map(([k,v])=>`<li><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><b class="num">${Math.round(v/tot*100)}%</b></li>`).join('')}</ul></div>`;
+    <ul class="legend">${entries.filter(([,v])=>v>0).map(([k,v])=>`<li><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><span class="cat-amt"><b class="num">${loc(v)}</b><small>${Math.round(v/tot*100)}%</small></span></li>`).join('')}</ul></div>`;
 }
 function budgetFrames(){
   const n=members(), b=budgetLoc(), used=myShare(), open=S.open;
   const g=group(), gTot=sum(g);
   const owedTotal=S.trip.friends.reduce((t,f)=>t+owes(f.name),0);
-  const myTile=`
-    <button class="tile me" data-action="money" data-k="me" aria-expanded="${open==='me'}">
-      <span class="eyebrow">My money</span>
-      <span class="donut-row">
-        <span class="donut" style="--spent:${Math.min(100,used/b*100||0)*3.6}deg" role="img" aria-label="${Math.round(Math.max(0,100-used/b*100||0))}% of budget left"><span>${Math.round(Math.max(0,100-used/b*100||0))}%<small>left</small></span></span>
-        <span class="donut-text">
-          <span class="val">${Math.round(b-used).toLocaleString('en-GB')} <small>IDR left</small></span>
-          <span class="gbp">≈ ${fmtHome((b-used)/RATES[home()])} left</span>
-        </span>
-      </span>
-      <span class="hint">${loc(used)} of ${loc(b)} spent</span>
-      <span class="more">${open==='me'?'Hide breakdown':'See breakdown'}</span>
-    </button>`;
-  const groupTile=isGroup()?`
-    <button class="tile group" data-action="money" data-k="group" aria-expanded="${open==='group'}">
-      <span class="eyebrow">Group money</span>
-      <span class="val">${Math.round(gTot).toLocaleString('en-GB')} <small>IDR spent together</small></span>
-      <span class="hint">Friends owe you ${loc(owedTotal)}</span>
-      <span class="more">${open==='group'?'Hide breakdown':'See breakdown'}</span>
-    </button>`:'';
+  // one tile for "my money" and one for the group pot: money left in rupiah and in your own currency
+  const tile=(k,eyebrow,total,spent,extra)=>{
+    const left=total-spent;
+    return `<button class="tile ${k}" data-action="money" data-k="${k}" aria-expanded="${open===k}">
+      <span class="eyebrow">${eyebrow}</span>
+      <span class="val">${Math.round(left).toLocaleString('en-GB')} <small>IDR left</small></span>
+      <span class="gbp">≈ ${fmtHome(left/RATES[home()])} left</span>
+      <span class="hint">left of ${loc(total)}</span>${extra}
+      <span class="more">${open===k?'Hide breakdown':'See breakdown'}</span>
+    </button>`};
+  const myTile=tile('me','My money',b,used,'');
+  const groupTile=isGroup()?tile('group','Group money',groupBudgetLoc(),gTot,`<span class="hint">${owedTotal>0?`Friends owe you ${loc(owedTotal)}`:'All settled up'}</span>`):'';
   let detail='';
   if(open==='me'){
     const byCat=Object.keys(CATS).map(k=>[k,S.expenses.filter(e=>e.cat===k).reduce((t,e)=>t+myOf(e),0)]);
     const items=S.expenses.filter(e=>myOf(e)>0);
     detail=`<section class="card">
       <h3>Where my money went</h3>${pie(byCat)}
-      ${items.length?`<ul class="list">${items.slice().reverse().map(e=>`<li><span>${esc(e.item)}${e.ex?'<span class="ex">Example</span>':''}</span><span class="amt">${loc(myOf(e))}</span>
+      ${items.length?`<ul class="list">${items.slice().reverse().map(e=>`<li><span>${esc(e.item)}</span><span class="amt">${loc(myOf(e))}</span>
         <small>${CATS[e.cat].label} · ${isShared(e)?`my share of ${loc(e.amt)}`:'just me'}</small><small class="amt">≈ ${fmtHome(myOf(e)/RATES[home()])}</small></li>`).join('')}</ul>`:''}
     </section>`;
   }
@@ -692,7 +731,7 @@ function budgetFrames(){
     const byCat=Object.keys(CATS).map(k=>[k,sum(g.filter(e=>e.cat===k))]);
     detail=`<section class="card">
       <h3>Where the group money went</h3>${pie(byCat)}
-      ${g.length?`<ul class="list">${g.slice().reverse().map(e=>{const w=Object.keys(e.shares).filter(k=>e.shares[k]>0).length;return `<li><span>${esc(e.item)}${e.ex?'<span class="ex">Example</span>':''}</span><span class="amt">${loc(e.amt)}</span><small>${CATS[e.cat].label} · paid by you</small><small class="amt">split ${w} ways</small></li>`}).join('')}</ul>`:''}
+      ${g.length?`<ul class="list">${g.slice().reverse().map(e=>{const w=Object.keys(e.shares).filter(k=>e.shares[k]>0).length;return `<li><span>${esc(e.item)}</span><span class="amt">${loc(e.amt)}</span><small>${CATS[e.cat].label} · paid by you</small><small class="amt">split ${w} ways</small></li>`}).join('')}</ul>`:''}
       <div class="stack" style="gap:8px">
         <h3>Settle up at the end of the trip</h3>
         ${S.trip.friends.map(f=>{const o=owes(f.name);return `<div class="owe"><span>${esc(f.name)} ${o>0?'owes you':''}</span><span class="num">${o>0?both(o):'<span class="approx">Nothing owed</span>'}</span></div>`}).join('')}
@@ -707,7 +746,7 @@ function budgetFrames(){
 }
 
 /* ---------- render ---------- */
-const STEP_NAMES=['Details','Trip','Friends','Welcome','Home'];
+const STEP_NAMES=['Details','Friends','Trip','Welcome','Home'];
 let welcomeT;
 // Debug switcher: remove this and the #dbg div when the prototype is done.
 // Pages 2+ need a home country, so fill the blanks with sample values when jumping past page 1.
@@ -715,6 +754,7 @@ function ensureDefaults(){if(!cty()){S.user.country='GB';S.user.home='GBP'}}
 function dbg(){const d=$('#dbg');d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button>`}
 function render(scroll){
   if(S.step>=2)ensureDefaults();
+  if(S.step>=2&&!S.trip.touched&&cty())S.trip.budget=defaultBudget();
   dbg();
   clearTimeout(welcomeT);
   const oldChat=$('.chat'), keep=oldChat?oldChat.scrollTop:0;
@@ -734,10 +774,11 @@ function scrollToEl(sel){setTimeout(()=>{const el=document.querySelector(sel);el
 const A={
   next(){S.errors={};
     if(S.step===1&&!onb1Ok())return;
-    if(S.step===2){if(!dest().ok)return;
+    if(S.step===2&&S.trip.mode==='group'&&!S.trip.friends.length) S.trip.mode='alone';
+    if(S.step===3){if(!dest().ok)return;
       if(!(Number(S.trip.budget)>0)){S.errors.trip='Add a budget above 0.';return render()}
       if(new Date(S.trip.end)<new Date(S.trip.start)){S.errors.trip='Your return date is before you leave.';return render()}}
-    if(S.step===3&&S.trip.mode==='group'&&!S.trip.friends.length) S.trip.mode='alone';
+    if(S.step===3)startTrip();
     S.step++; render(true)},
   prev(){S.step--;render(true)},
   skip(){S.step=5;render(true)},
@@ -753,21 +794,35 @@ const A={
   style(t){S.check.style=t.dataset.s;render()},
   money(t){S.open=S.open===t.dataset.k?null:t.dataset.k;render()},
   rmFriend(t){S.trip.friends.splice(+t.dataset.i,1);render()},
-  check(itemId,amount,from,said){const c=S.check;c.err='';c.result={itemId,amount,from,said};c.step='choose';c.scroll='new';
-    const p=item(itemId),v=verdictOf(p,amount),[mn,mx]=rng(p);
-    c.paidAmt=(v==='high'||v==='tooHigh')?r5((mn+mx)/2):amount;c.paidCat=p.cat;c.text='';render();scrollToEl('#check')},
-  send(){const c=S.check,t=c.text.trim();if(!t){c.err='Type what it is and the price first.';return render()}
-    const r=parseAsk(t);if(!r){c.err='Add what it is and the price, like "iced tea at the beach, 30000".';return render()}
-    S.check.style=r.style;A.check(r.itemId,r.amount,'text',t)},
+  check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null};c.step='choose';c.scroll='new';
+    if(!item(itemId)){c.paidAmt=amount;c.text='';render();scrollToEl('#check');return} // not in the database: Pay still works
+    const k=calc(c.result);
+    c.paidAmt=(k.v==='high'||k.v==='tooHigh')?k.plan.aimFor:amount;c.paidCat=k.p.cat;c.text='';render();scrollToEl('#check')},
+  send(){sendText(S.check.text.trim(),'text',t=>t)},
   example(t){const c=S.check;c.text=EXAMPLES[+t.dataset.i];c.err='';render();const el=$('#c-ask');el&&el.focus()},
-  listen(){const c=S.check;if(c.listening)return;c.listening=true;c.text='';render();
-    setTimeout(()=>{c.listening=false;c.style='local';A.check('taxi-airport',400000,'voice','🎙 "Taxi from the airport to Seminyak, he wants 400000"')},1400)},
+  // tap to record, tap again to stop (or it stops itself after 30s). The transcript lands in the input so you can check it, then Enter sends.
+  async listen(){
+    const c=S.check;
+    if(rec){stopRec();return}
+    if(c.busy||c.hearing)return;
+    let stream;
+    try{stream=await navigator.mediaDevices.getUserMedia({audio:true})}
+    catch(e){return micFail('Allow microphone access or type it.')}
+    const type=window.MediaRecorder&&MIC_TYPES.find(t=>MediaRecorder.isTypeSupported(t)),chunks=[];
+    try{rec=type?new MediaRecorder(stream,{mimeType:type}):new MediaRecorder(stream)}
+    catch(e){stream.getTracks().forEach(k=>k.stop());return micFail("Couldn't hear that. Try again or type it.")}
+    rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
+    rec.onerror=()=>{stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;micFail("Couldn't hear that. Try again or type it.")};
+    rec.onstop=()=>finishRec(stream,chunks,rec&&rec.mimeType||type||'audio/webm');
+    c.err='';c.text='';c.listening=true;render();
+    rec.start(3000);recTimer=setTimeout(stopRec,30000);startPreview()
+  },
   choose(t){const c=S.check,n=t.dataset.next;
     if(n==='leave'){c.result=null;c.step=null;c.photo=null;render();toast('Okay, nothing was saved');return}
     if(n==='pay'){const on={};people().forEach(p=>on[p.key]=true);c.split={mode:'equal',on,custom:{}}}
     c.step=n;c.scroll='end';render()},
   tick(t){const sp=S.check.split;sp.on[t.dataset.p]=!sp.on[t.dataset.p];render()},
-  save(){const c=S.check,p=item(c.result.itemId),amt=Number(c.paidAmt)||0,sp=c.split;c.err='';
+  save(){const c=S.check,p=item(c.result.itemId)||{name:c.result.name},amt=Number(c.paidAmt)||0,sp=c.split;c.err='';
     const ps=people().filter(x=>!isGroup()||sp.on[x.key]);
     if(!ps.length){c.err='Tick at least one person to split with.';return render()}
     const shares={};
@@ -777,9 +832,69 @@ const A={
       if(Math.abs(tot-amt)>=1){c.err=`The split adds up to ${loc(tot)}, but you paid ${loc(amt)}.`;return render()}}
     S.expenses.push({item:p.name,cat:c.paidCat,amt,shares});
     c.result=null;c.step=null;c.photo=null;render();scrollToEl('#budget');toast('Saved to your budget')},
-  speak(t){try{if(!('speechSynthesis' in window))throw 0;const u=new SpeechSynthesisUtterance(t.dataset.text);u.lang=t.dataset.lang;u.rate=.85;
-    speechSynthesis.cancel();speechSynthesis.speak(u);toast('Playing the phrase')}catch(e){toast("Voice isn't available in this browser")}}
+  // api.speak tries ElevenLabs first and falls back to the device voice on its own
+  async speak(t){
+    if(t.disabled)return;
+    const label=t.innerHTML;t.disabled=true;t.textContent='Playing…';
+    const who=await window.fairfareApi.speak(t.dataset.text,t.dataset.lang);
+    t.disabled=false;t.innerHTML=label;
+    if(who==='none')toast("Voice isn't available in this browser");
+    else if(who==='api'&&!S.check.realVoice){S.check.realVoice=true;document.querySelectorAll('.demo').forEach(n=>n.remove())}}
 };
+const MIC_TYPES=['audio/webm','audio/mp4','audio/ogg']; // first one this browser can record
+let rec=null,recTimer=0,preview=null; // the active MediaRecorder, its 30s timer, and the live-caption recogniser
+const micFail=msg=>{const c=S.check;c.listening=false;c.hearing=false;c.err=msg;render()};
+// the send button only shows when there is something to send
+function syncSend(){const b=$('#c-send');if(b)b.hidden=!S.check.text.trim()}
+function stopPreview(){if(preview){try{preview.stop()}catch(e){}preview=null}}
+function stopRec(){clearTimeout(recTimer);stopPreview();if(rec&&rec.state!=='inactive')rec.stop()}
+// live words while you speak: only a preview, the real transcript comes from the API. No support = skipped silently.
+function startPreview(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;
+  try{preview=new SR();preview.continuous=true;preview.interimResults=true;preview.lang='en-GB';
+    preview.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
+      S.check.text=t;const el=$('#c-ask');if(el)el.value=t;syncSend()};
+    preview.onerror=()=>{};preview.start()}
+  catch(e){preview=null}}
+async function finishRec(stream,chunks,type){
+  const c=S.check;clearTimeout(recTimer);stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;
+  c.listening=false;c.hearing=true;render();
+  try{
+    const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}))).trim():'';
+    c.hearing=false;
+    if(!text){c.text='';return micFail('No clear speech was heard. Try again or type it.')}
+    c.text=text;c.err='';render();const el=$('#c-ask');el&&el.focus()
+  }catch(e){c.text='';micFail("Couldn't hear that. Try again or type it.")}}
+// parse + check through the API (the database decides the numbers); if it is down, or has no Bali prices yet,
+// the keyword parser and local prices below answer instead, so the screen never goes blank
+// what the API stores for this trip; budgetHome stays MY share so /api/trips/:id/summary keeps working
+function tripPayload(){
+  const friends=isGroup()?S.trip.friends:[];
+  return{city:'bali',currency:'IDR',homeCurrency:home(),rateToLocal:RATES[home()],
+    budgetHome:perPersonHome(),groupBudgetHome:Number(S.trip.budget)||0,start:S.trip.start,end:S.trip.end,
+    people:[{id:'me',name:S.user.name||'Me',isMe:true,status:'joined',...(emailOk(S.user.email)?{email:S.user.email.trim()}:{})}]
+      .concat(friends.map(f=>({id:f.name,name:f.name,isMe:false,status:f.status==='Joined'?'joined':'invited',...(emailOk(f.email||'')?{email:f.email}:{})})))}}
+// fire and forget: if the API is down the app still works on the demo trip
+function startTrip(){try{window.fairfareApi.createTrip(tripPayload()).then(t=>{S.tripId=t.id},()=>{})}catch(e){}}
+async function sendText(t,from,said){const c=S.check;
+  if(c.busy)return;
+  if(!t){c.err='Type what it is and the price first.';return render()}
+  c.err='';c.busy=true;render();
+  let r=null,api=null,parsed=false;
+  try{
+    const pr=await window.fairfareApi.parse({city:'bali',text:t});
+    parsed=true;
+    if(pr.currency==='IDR'&&pr.confidence>=.5&&item(pr.itemId)){
+      r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
+      try{const ck=await window.fairfareApi.check({tripId:S.tripId||'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style});if(ck.currency==='IDR')api=ck}catch(e){}
+    }
+  }catch(e){parsed=false}
+  c.busy=false;
+  if(!parsed)r=parseAsk(t);
+  if(r){c.style=r.style;return A.check(r.itemId,r.amount,from,said(t),{api})}
+  const nums=t.match(/\d+(\.\d+)?/g);
+  if(nums)return A.check(null,Number(nums[nums.length-1]),from,said(t),{name:t});
+  c.err='Add what it is and the price, like "iced tea at the beach, 30000".';render()}
 function readPhoto(dataUrl){S.check.photo=dataUrl;S.check.style='local';A.check('sarong',300000,'photo','')}
 
 /* light / dark button: starts from the phone's setting, then remembers the choice */
@@ -795,6 +910,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-action]');
 document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return;
   let v=t.value; if(t.dataset.bind==='trip.dest') v=Number(v);
   setPath(t.dataset.bind,v);
+  if(t.id==='c-ask')syncSend();
   if(t.dataset.bind==='user.country'){S.user.home=cty().cur;if(!S.trip.touched)S.trip.budget=defaultBudget()} // flag + currency follow the country
   if(t.id==='f-budget')S.trip.touched=true;
   if(t.tagName==='SELECT'){ if(t.dataset.bind==='check.itemId') S.check.result=null; render() }

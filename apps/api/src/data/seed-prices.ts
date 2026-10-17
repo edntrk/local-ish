@@ -1,14 +1,15 @@
 import type { PriceItem } from "@fairfare/shared";
 
-/** Sample Marrakech prices in MAD. DATA role: replace with verified numbers + sources before the demo. */
+/** Sample Bali prices in IDR (from docs/AI_FLOW.md). DATA role: replace with verified numbers and real sources before the demo. */
 export const SEED_PRICES: PriceItem[] = [
-  { id: "taxi-airport", city: "marrakech", category: "transport", name: "Taxi: airport to Medina", min: 100, max: 150, currency: "MAD", tip: 'Agree the price before you get in. Ask for the meter: "le compteur".' },
-  { id: "taxi-city", city: "marrakech", category: "transport", name: "Petit taxi within the city", min: 15, max: 30, currency: "MAD", tip: "Daytime rides should use the meter. Night fares are about 50% higher." },
-  { id: "tea", city: "marrakech", category: "food", name: "Mint tea at a café", min: 10, max: 20, currency: "MAD", tip: "Prices near Jemaa el-Fna square are higher. One street back is cheaper." },
-  { id: "tagine", city: "marrakech", category: "food", name: "Tagine at a local restaurant", min: 40, max: 80, currency: "MAD", tip: "Check the menu has prices on it before you sit down." },
-  { id: "oj", city: "marrakech", category: "food", name: "Orange juice at Jemaa el-Fna", min: 4, max: 10, currency: "MAD", tip: "Stalls show the price on a sign. Ask for fresh, not mixed with water." },
-  { id: "water", city: "marrakech", category: "food", name: "Water, 1.5L bottle", min: 5, max: 8, currency: "MAD", tip: "Corner shops are cheapest. Tourist kiosks often charge double." },
-  { id: "sim", city: "marrakech", category: "sim", name: "Tourist SIM with data", min: 30, max: 60, currency: "MAD", tip: "Buy at an official Maroc Telecom, Orange or inwi shop. Bring your passport." },
-  { id: "babouche", city: "marrakech", category: "shopping", name: "Leather babouche slippers", min: 80, max: 150, currency: "MAD", tip: "Start at about half the first price and meet in the middle." },
-  { id: "argan", city: "marrakech", category: "shopping", name: "Argan oil, 100ml", min: 60, max: 120, currency: "MAD", tip: "Cooperatives sell pure oil with a label. Very cheap oil is often mixed." },
+  { id: "taxi-airport", city: "bali", category: "transport", name: "Taxi: airport to Seminyak", min: 150000, max: 250000, currency: "IDR", tip: "Use Grab or the official counter, or agree the price before you get in. Ask for the meter: \"argo\".", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "taxi-city", city: "bali", category: "transport", name: "Short ride by Grab or Gojek", min: 20000, max: 50000, currency: "IDR", tip: "The app shows the price before you go. Street taxis often quote double.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "scooter", city: "bali", category: "transport", name: "Scooter rental, per day", min: 70000, max: 100000, currency: "IDR", tip: "Check the brakes and photo the scooter before you ride off.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "tea", city: "bali", category: "food", name: "Iced tea at a café", min: 10000, max: 25000, currency: "IDR", tip: "Beach clubs charge 3 to 4 times more. One street back is cheaper.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "nasi", city: "bali", category: "food", name: "Nasi goreng at a warung", min: 25000, max: 50000, currency: "IDR", tip: "Check the menu has prices on it before you sit down.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "oj", city: "bali", category: "food", name: "Fresh juice at a stall", min: 15000, max: 35000, currency: "IDR", tip: "Ask for no sugar syrup and no ice if you are unsure about the water.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "water", city: "bali", category: "food", name: "Water, 1.5L bottle", min: 6000, max: 12000, currency: "IDR", tip: "Minimarkets are cheapest. Beach kiosks often charge double.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "sim", city: "bali", category: "sim", name: "Tourist SIM with data", min: 100000, max: 200000, currency: "IDR", tip: "Buy at an official Telkomsel or XL shop. Bring your passport.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "sarong", city: "bali", category: "shopping", name: "Batik sarong at a market", min: 50000, max: 150000, currency: "IDR", tip: "Start at about half the first price and meet in the middle.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
+  { id: "carving", city: "bali", category: "shopping", name: "Small wooden carving", min: 100000, max: 250000, currency: "IDR", tip: "Check the finish and ask where it was made. Shop prices are often fixed.", source: "Estimate, not yet verified", checkedOn: "2026-10-17" },
 ];

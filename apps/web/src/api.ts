@@ -31,25 +31,44 @@ export const api = {
 
   /** returns text heard in the recording */
   speechToText: async (audio: Blob) => {
-    const res = await fetch("/api/voice/stt", { method: "POST", headers: { "content-type": audio.type || "audio/webm" }, body: audio });
+    // "audio/webm;codecs=opus" -> "audio/webm": the server only wants the plain type
+    const type = (audio.type || "audio/webm").split(";")[0].trim();
+    const res = await fetch("/api/voice/stt", { method: "POST", headers: { "content-type": type }, body: audio });
     if (!res.ok) throw new Error("Couldn't hear that. Try again or type it.");
     return ((await res.json()) as { text: string }).text;
   },
 
-  /** plays the phrase: ElevenLabs if it's on, otherwise the phone's own voice */
-  speak: async (text: string, lang: string) => {
-    const res = await fetch("/api/voice/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang }) });
-    if (res.status === 200) {
-      const url = URL.createObjectURL(await res.blob());
-      await new Audio(url).play();
-      return;
+  /**
+   * Plays the phrase. Resolves when it has finished, with who spoke:
+   * "api" = ElevenLabs audio, "device" = the phone's own voice (mock mode, an API error, or blocked audio).
+   * Never throws, so a voice problem can't break the screen. Returns "none" if nothing could speak.
+   */
+  speak: async (text: string, lang: string): Promise<"api" | "device" | "none"> => {
+    try {
+      const res = await fetch("/api/voice/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang }) });
+      if (res.status === 200) {
+        const url = URL.createObjectURL(await res.blob());
+        const audio = new Audio(url);
+        await new Promise<void>((done, fail) => {
+          audio.onended = () => done();
+          audio.onerror = () => fail(new Error("audio failed"));
+          audio.play().catch(fail);
+        });
+        URL.revokeObjectURL(url);
+        return "api";
+      }
+    } catch {
+      // fall through to the device voice
     }
-    if ("speechSynthesis" in window) {
+    if (!("speechSynthesis" in window)) return "none";
+    return new Promise((done) => {
       const u = new SpeechSynthesisUtterance(text);
       u.lang = lang;
       u.rate = 0.85;
+      u.onend = () => done("device");
+      u.onerror = () => done("none");
       speechSynthesis.cancel();
       speechSynthesis.speak(u);
-    }
+    });
   },
 };

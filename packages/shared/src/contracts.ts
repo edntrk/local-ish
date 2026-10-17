@@ -48,7 +48,8 @@ export const Trip = z.object({
   currency: z.string(), // local currency, e.g. "MAD"
   homeCurrency: z.string(), // e.g. "GBP"
   rateToLocal: z.number().positive(), // 1 home unit = this many local units
-  budgetHome: z.number().nonnegative(), // the "me" budget in home currency
+  budgetHome: z.number().nonnegative(), // the "me" budget in home currency (my per-person share when travelling in a group)
+  groupBudgetHome: z.number().nonnegative().optional(), // the whole group's budget in home currency
   start: z.string(), // ISO date
   end: z.string(), // ISO date
   people: z.array(Person).min(1),
@@ -133,6 +134,7 @@ export const CheckRequest = z.object({
   itemId: z.string(),
   amount: z.number().nonnegative(),
   style: Style,
+  situation: z.string().optional(), // from /api/parse, e.g. "airport, at night"; helps the advice
 });
 export type CheckRequest = z.infer<typeof CheckRequest>;
 
@@ -147,7 +149,21 @@ export const CheckResult = z.object({
     myShareIfSplit: z.number(),
     pctOfDaily: z.number(),
   }),
-  phrase: z.object({ local: z.string(), localLang: z.string(), french: z.string(), english: z.string() }),
+  /** Short friendly advice (1-2 sentences). Written by Gemini, or a template if Gemini is unavailable. */
+  advice: z.string().optional(),
+  /** Bargaining plan, only for high / tooHigh. All three numbers stay inside the usual range. */
+  plan: z.object({ openWith: z.number(), aimFor: z.number(), walkAwayAbove: z.number() }).optional(),
+  /** What to say, only for high / tooHigh. `local` is Bahasa Indonesia, `lang` is its BCP-47 code. */
+  phrase: z
+    .object({
+      local: z.string(),
+      polite: z.string().optional(),
+      english: z.string(),
+      lang: z.string().optional(), // e.g. "id-ID"
+      localLang: z.string().optional(), // older name for `lang`, kept so nothing breaks
+      french: z.string().optional(),
+    })
+    .optional(),
 });
 export type CheckResult = z.infer<typeof CheckResult>;
 

@@ -4,6 +4,9 @@
  */
 import type { CheckResult, Expense, PriceItem, Style, Summary, Trip, Verdict } from "./contracts";
 
+type Plan = NonNullable<CheckResult["plan"]>;
+type Phrase = NonNullable<CheckResult["phrase"]>;
+
 export const STYLE_MULTIPLIER: Record<Style, number> = { local: 1, mid: 1.8, fancy: 3.5 };
 
 const round5 = (x: number) => (x > 20 ? Math.round(x / 5) * 5 : Math.round(x));
@@ -24,14 +27,73 @@ export function tripDays(trip: Pick<Trip, "start" | "end">): number {
   return Number.isFinite(d) && d > 0 ? d : 1;
 }
 
+/** The budget box holds the whole group's budget; each person's share is that split by head count (me included). */
+export function perPersonBudget(groupBudget: number, headCount: number): number {
+  return headCount > 0 ? Math.round((groupBudget / headCount) * 100) / 100 : groupBudget;
+}
+
 export function budgetLocal(trip: Trip): number {
   return trip.budgetHome * trip.rateToLocal;
+}
+
+/** Rupiah amounts are quoted in round numbers: 5,000 steps. Other currencies keep the small-step rounding. */
+export const roundMoney = (x: number, currency: string) => (currency === "IDR" ? Math.round(x / 5000) * 5000 : round5(x));
+
+const fmt = (n: number) => n.toLocaleString("en-GB");
+
+/** The no-AI plan: open at the bottom of the usual range, aim for the target, walk away above the top. */
+export function templatePlan(range: { min: number; max: number }, target: number): Plan {
+  return { openWith: range.min, aimFor: target, walkAwayAbove: range.max };
+}
+
+/** Whatever the AI suggests, keep every number inside the usual range, in order. */
+export function clampPlan(plan: Plan, range: { min: number; max: number }, currency: string): Plan {
+  const inRange = (x: number) => Math.min(range.max, Math.max(range.min, roundMoney(Number.isFinite(x) ? x : range.min, currency)));
+  const openWith = inRange(plan.openWith);
+  const aimFor = Math.max(openWith, inRange(plan.aimFor));
+  return { openWith, aimFor, walkAwayAbove: Math.max(aimFor, inRange(plan.walkAwayAbove)) };
+}
+
+/** Default phrase in Bahasa Indonesia. It always opens with the plan's first offer, in round thousands. */
+export function templatePhrase(openWith: number, currency: string): Phrase {
+  const offer = roundMoney(openWith, currency);
+  const ribu = Math.round(offer / 1000);
+  return {
+    local: `Wah, mahal banget! ${ribu} ribu saja, boleh?`,
+    polite: `Maaf, bisa ${ribu} ribu saja, Pak?`,
+    english: `Wow, that's very expensive! Just ${fmt(offer)}, okay?`,
+    lang: "id-ID",
+    localLang: "id-ID",
+  };
+}
+
+const TEMPLATE_ADVICE: Record<Verdict, string> = {
+  great: "Good deal, go for it.",
+  fair: "That's normal here.",
+  high: "A bit high, try to bargain.",
+  tooHigh: "Way above normal, bargain or walk away.",
+};
+
+/** What Gemini may add on top of a checked result. The numbers and the verdict stay as checkPrice made them. */
+export type AdviceDraft = { advice: string; plan?: Plan; phrase?: { local: string; polite?: string; english: string } };
+
+export function applyAdvice(base: CheckResult, draft: AdviceDraft): CheckResult {
+  const out: CheckResult = { ...base, advice: draft.advice.trim() || base.advice };
+  if (!base.plan) return out; // great / fair: advice only
+  const plan = draft.plan ? clampPlan(draft.plan, base.range, base.currency) : base.plan;
+  out.plan = plan;
+  // the phrase must say the same number as the plan; otherwise use the template so words and numbers agree
+  const ribu = String(Math.round(plan.openWith / 1000));
+  out.phrase = draft.phrase && new RegExp(`\\b${ribu}\\b`).test(draft.phrase.local)
+    ? { ...draft.phrase, lang: "id-ID", localLang: "id-ID" }
+    : templatePhrase(plan.openWith, base.currency);
+  return out;
 }
 
 export function checkPrice(trip: Trip, item: PriceItem, amount: number, style: Style): CheckResult {
   const range = rangeFor(item, style);
   const verdict = verdictFor(amount, range);
-  const target = Math.round((range.min + range.max) / 2 / 5) * 5;
+  const target = roundMoney((range.min + range.max) / 2, item.currency);
   const daily = budgetLocal(trip) / tripDays(trip);
   const share = amount / trip.people.length;
   return {
@@ -45,12 +107,14 @@ export function checkPrice(trip: Trip, item: PriceItem, amount: number, style: S
       myShareIfSplit: Math.round(share * 100) / 100,
       pctOfDaily: daily > 0 ? Math.round((share / daily) * 100) : 0,
     },
-    phrase: {
-      local: `Ghali bzaf! ${target} dirham, safi?`,
-      localLang: "ar-MA",
-      french: `C'est trop cher. ${target} dirhams, d'accord ?`,
-      english: `Too expensive! ${target} dirhams, okay?`,
-    },
+    advice: TEMPLATE_ADVICE[verdict],
+    // a plan and a phrase only make sense when the price is high
+    ...(verdict === "high" || verdict === "tooHigh"
+      ? (() => {
+          const plan = templatePlan(range, target);
+          return { plan, phrase: templatePhrase(plan.openWith, item.currency) };
+        })()
+      : {}),
   };
 }
 

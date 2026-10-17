@@ -3,7 +3,7 @@
  * Each role builds ONE class that implements its port. The API only talks to these
  * interfaces, so swapping mock -> real never breaks anyone else's code.
  */
-import type { Expense, NewExpense, ParsedAsk, ParseRequest, PriceItem, Trip } from "@fairfare/shared";
+import type { AdviceDraft, CheckResult, Expense, NewExpense, ParsedAsk, ParseRequest, PriceItem, Trip } from "@fairfare/shared";
 
 /** DATA role (Tiger Data / PostgreSQL) */
 export interface DataStore {
@@ -26,4 +26,9 @@ export interface VoiceService {
 /** AI role (Gemini): turn typed text, spoken text or a photo into a structured ask */
 export interface AskParser {
   parse(req: ParseRequest, prices: PriceItem[]): Promise<ParsedAsk>;
+}
+
+/** AI role (Gemini): explain a price check that was already worked out. It never changes the numbers or the verdict. */
+export interface AdviceWriter {
+  advise(result: CheckResult, context: { city: string; amount: number; style: string; situation?: string }): Promise<AdviceDraft>;
 }
