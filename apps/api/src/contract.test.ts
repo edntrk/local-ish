@@ -6,7 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { CheckResult, Expense, Health, ParsedAsk, PriceItem, Summary, Trip, perPersonBudget } from "@fairfare/shared";
+import { CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
 import { createApp } from "./app";
 import { MockDataStore } from "./data/mock";
 import { MockVoice } from "./voice/mock";
@@ -131,6 +131,86 @@ describe("API keeps its promises", () => {
     expect(trip.budgetHome).toBe(600);
     const sum = Summary.parse((await call(`/api/trips/${trip.id}/summary`)).body);
     expect(sum.budget).toBe(600 * 21500); // my share, not the group total
+  });
+
+  it("invites: by-code for the join screen, claiming an invited person, and per-person summaries", async () => {
+    const people = [
+      { id: "x1", name: "Renata", isMe: true, status: "joined" },
+      { id: "x2", name: "Bella", isMe: false, status: "invited", email: "bella@example.com" },
+      { id: "x3", name: "Dewi", isMe: false, status: "invited" },
+    ];
+    const created = Trip.parse((await call("/api/trips", { method: "POST", body: JSON.stringify({
+      city: "bali", currency: "IDR", homeCurrency: "GBP", rateToLocal: 21500, budgetHome: 600, groupBudgetHome: 1800,
+      start: "2026-10-24", end: "2026-10-30", people }) })).body);
+    // the server made its own person ids
+    expect(created.people.map((p) => p.id)).not.toContain("x1");
+    const renata = created.people.find((p) => p.isMe)!;
+
+    const info = TripByCode.parse((await call(`/api/trips/by-code/${created.inviteCode}`)).body);
+    expect(info).toMatchObject({ tripId: created.id, ownerName: "Renata", city: "bali", perPersonBudgetHome: 600, homeCurrency: "GBP" });
+    expect(info.people).toEqual(["Renata", "Bella", "Dewi"]);
+    const bad = await call("/api/trips/by-code/NOPE-0000");
+    expect(bad.status).toBe(404);
+    expect(bad.body.error).toBe("This invite link doesn't work. Ask your friend for a new one.");
+
+    // "bella" (small letters) claims the invited Bella: no duplicate, same person id, now joined
+    const join = JoinResult.parse((await call("/api/trips/join", { method: "POST", body: JSON.stringify({ code: created.inviteCode, name: "bella" }) })).body);
+    const bella = created.people.find((p) => p.name === "Bella")!;
+    expect(join.personId).toBe(bella.id);
+    expect(join.people).toHaveLength(3);
+    expect(join.people.find((p) => p.id === bella.id)!.status).toBe("joined");
+
+    // a stranger becomes a new person and the head count (and so everyone's share) changes
+    const rio = JoinResult.parse((await call("/api/trips/join", { method: "POST", body: JSON.stringify({ code: created.inviteCode, name: "Rio" }) })).body);
+    expect(rio.people).toHaveLength(4);
+    expect(rio.people.find((p) => p.id === rio.personId)!.name).toBe("Rio");
+
+    // Bella pays for lunch for Bella + Renata; ids only
+    const lunch = await call(`/api/trips/${created.id}/expenses`, { method: "POST", body: JSON.stringify({
+      item: "Lunch", category: "food", amount: 100000, paidBy: bella.id, shares: { [bella.id]: 50000, [renata.id]: 50000 } }) });
+    expect(lunch.status).toBe(201);
+    const nope = await call(`/api/trips/${created.id}/expenses`, { method: "POST", body: JSON.stringify({
+      item: "Lunch", category: "food", amount: 100000, paidBy: "Bella", shares: { Bella: 100000 } }) });
+    expect(nope.status).toBe(400); // names are not person ids
+
+    const forRenata = Summary.parse((await call(`/api/trips/${created.id}/summary?personId=${renata.id}`)).body);
+    const forBella = Summary.parse((await call(`/api/trips/${created.id}/summary?personId=${bella.id}`)).body);
+    expect(forRenata.mySpent).toBe(50000);
+    expect(forBella.mySpent).toBe(50000);
+    expect(forRenata.myBudget).toBe((1800 * 21500) / 4);
+    expect(forRenata.net).toBe(-50000);
+    expect(forBella.net).toBe(50000);
+    expect(forRenata.transfers).toEqual([{ fromId: renata.id, fromName: "Renata", toId: bella.id, toName: "Bella", amount: 50000 }]);
+    expect(forRenata.groupSpent).toBe(100000);
+    expect(forRenata.groupLeft).toBe(1800 * 21500 - 100000);
+    expect((await call(`/api/trips/${created.id}/summary?personId=ghost`)).status).toBe(404);
+    // no personId = the creator
+    expect(Summary.parse((await call(`/api/trips/${created.id}/summary`)).body).viewerId).toBe(renata.id);
+  });
+
+  it("the invite link can be shown before the trip exists: reserve a code, then create the trip with it", async () => {
+    const { code } = (await call("/api/invite-codes", { method: "POST", body: "{}" })).body;
+    expect(code).toMatch(/^BAL-[A-Z0-9]{5}$/);
+    const early = await call(`/api/trips/by-code/${code}`); // a friend is too early
+    expect(early.status).toBe(404);
+    expect(early.body.error).toContain("still setting up");
+    const trip = Trip.parse((await call("/api/trips", { method: "POST", body: JSON.stringify({
+      city: "bali", currency: "IDR", homeCurrency: "GBP", rateToLocal: 21500, budgetHome: 600, groupBudgetHome: 600, inviteCode: code,
+      start: "2026-10-24", end: "2026-10-30", people: [{ id: "x", name: "Renata", isMe: true, status: "joined" }] }) })).body);
+    expect(trip.inviteCode).toBe(code);
+    expect(TripByCode.parse((await call(`/api/trips/by-code/${code}`)).body).tripId).toBe(trip.id);
+    // the same code can't be used for a second trip
+    const again = Trip.parse((await call("/api/trips", { method: "POST", body: JSON.stringify({
+      city: "bali", currency: "IDR", homeCurrency: "GBP", rateToLocal: 21500, budgetHome: 600, inviteCode: code,
+      start: "2026-10-24", end: "2026-10-30", people: [{ id: "y", name: "Other", isMe: true, status: "joined" }] }) })).body);
+    expect(again.inviteCode).not.toBe(code);
+  });
+
+  it("joining with an empty name or a bad code gives plain errors", async () => {
+    expect((await call("/api/trips/join", { method: "POST", body: JSON.stringify({ code: "BAL-24OCT", name: "  " }) })).status).toBe(400);
+    const r = await call("/api/trips/join", { method: "POST", body: JSON.stringify({ code: "NOPE", name: "Rio" }) });
+    expect(r.status).toBe(404);
+    expect(r.body.error).toContain("invite link");
   });
 
   it("a trip without groupBudgetHome still works (the field is optional)", async () => {

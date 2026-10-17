@@ -17,7 +17,12 @@ const rowToPrice = (r: any): PriceItem => ({
 
 export class TigerDataStore implements DataStore {
   private pool: pg.Pool;
-  constructor(url: string) { this.pool = new pg.Pool({ connectionString: url }); }
+  constructor(url: string) {
+    // node-pg reads sslmode=require as "verify the whole certificate chain", and Tiger Cloud's chain fails that
+    // (SELF_SIGNED_CERT_IN_CHAIN). uselibpqcompat gives the standard libpq meaning of "require": encrypted, chain not verified.
+    const compat = /sslmode=(require|prefer)/.test(url) && !/uselibpqcompat=/.test(url) ? url + (url.includes("?") ? "&" : "?") + "uselibpqcompat=true" : url;
+    this.pool = new pg.Pool({ connectionString: compat });
+  }
 
   async listPrices(city: string) {
     const { rows } = await this.pool.query("select * from price_items where city = $1 order by category, name", [city]);
@@ -27,16 +32,26 @@ export class TigerDataStore implements DataStore {
     const { rows } = await this.pool.query("select * from price_items where city = $1 and id = $2", [city, itemId]);
     return rows[0] ? rowToPrice(rows[0]) : null;
   }
-  async createTrip(t: Omit<Trip, "id" | "inviteCode">) {
+  private async freshCode() {
+    for (;;) {
+      const code = "BAL-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+      const { rows } = await this.pool.query("select 1 from trips where invite_code = $1", [code]);
+      if (!rows[0]) return code;
+    }
+  }
+  async reserveInviteCode() { return this.freshCode(); } // random and checked against existing trips; no reservation table needed
+  async createTrip(t: Omit<Trip, "id" | "inviteCode"> & { inviteCode?: string }) {
     const id = randomUUID();
-    const inviteCode = "MRK-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+    const wanted = t.inviteCode?.trim().toUpperCase();
+    const taken = wanted ? (await this.pool.query("select 1 from trips where invite_code = $1", [wanted])).rows.length > 0 : true;
+    const inviteCode = taken ? await this.freshCode() : wanted!;
     const c = await this.pool.connect();
     try {
       await c.query("begin");
       await c.query(
-        `insert into trips (id, city, currency, home_currency, rate_to_local, budget_home, start_date, end_date, invite_code)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [id, t.city, t.currency, t.homeCurrency, t.rateToLocal, t.budgetHome, t.start, t.end, inviteCode],
+        `insert into trips (id, city, currency, home_currency, rate_to_local, budget_home, group_budget_home, start_date, end_date, invite_code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [id, t.city, t.currency, t.homeCurrency, t.rateToLocal, t.budgetHome, t.groupBudgetHome ?? null, t.start, t.end, inviteCode],
       );
       for (const p of t.people) {
         await c.query("insert into people (id, trip_id, name, email, is_me, status) values ($1,$2,$3,$4,$5,$6)", [p.id, id, p.name, p.email ?? null, p.isMe, p.status]);
@@ -52,14 +67,26 @@ export class TigerDataStore implements DataStore {
     const people = await this.pool.query("select * from people where trip_id = $1 order by is_me desc, name", [tripId]);
     return {
       id: t.id, city: t.city, currency: t.currency, homeCurrency: t.home_currency, rateToLocal: Number(t.rate_to_local),
-      budgetHome: Number(t.budget_home), start: String(t.start_date).slice(0, 10), end: String(t.end_date).slice(0, 10), inviteCode: t.invite_code,
+      budgetHome: Number(t.budget_home), groupBudgetHome: t.group_budget_home != null ? Number(t.group_budget_home) : undefined, start: String(t.start_date).slice(0, 10), end: String(t.end_date).slice(0, 10), inviteCode: t.invite_code,
       people: people.rows.map((p) => ({ id: p.id, name: p.name, email: p.email ?? undefined, isMe: p.is_me, status: p.status })),
     } satisfies Trip;
   }
+  async getTripByCode(code: string) {
+    const { rows } = await this.pool.query("select id from trips where lower(invite_code) = lower($1)", [code.trim()]);
+    return rows[0] ? this.getTrip(rows[0].id) : null;
+  }
   async joinTrip(code: string, name: string, email?: string) {
-    const { rows } = await this.pool.query("select id from trips where invite_code = $1", [code]);
+    const { rows } = await this.pool.query("select id from trips where lower(invite_code) = lower($1)", [code.trim()]);
     if (!rows[0]) return null;
-    await this.pool.query("insert into people (id, trip_id, name, email, is_me, status) values ($1,$2,$3,$4,false,'joined')", [randomUUID(), rows[0].id, name, email ?? null]);
+    // an "invited" person with the same name (any capitals) is claimed instead of duplicated
+    const claimed = await this.pool.query(
+      `update people set status = 'joined', email = coalesce($3, email)
+       where id = (select id from people where trip_id = $1 and status = 'invited' and lower(trim(name)) = lower(trim($2)) limit 1)`,
+      [rows[0].id, name, email ?? null],
+    );
+    if (!claimed.rowCount) {
+      await this.pool.query("insert into people (id, trip_id, name, email, is_me, status) values ($1,$2,$3,$4,false,'joined')", [randomUUID(), rows[0].id, name, email ?? null]);
+    }
     return this.getTrip(rows[0].id);
   }
   async listExpenses(tripId: string) {

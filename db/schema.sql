@@ -21,12 +21,16 @@ create table if not exists trips (
   currency       text not null,
   home_currency  text not null,
   rate_to_local  numeric(14,6) not null,
-  budget_home    numeric(12,2) not null,
+  budget_home    numeric(12,2) not null,   -- one person's share (group budget / people)
+  group_budget_home numeric(12,2),         -- the whole group's budget, optional
   start_date     date not null,
   end_date       date not null,
   invite_code    text unique not null,
   created_at     timestamptz not null default now()
 );
+
+-- for databases created before group_budget_home existed
+alter table trips add column if not exists group_budget_home numeric(12,2);
 
 create table if not exists people (
   id       text primary key,

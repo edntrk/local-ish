@@ -7,6 +7,7 @@ import { SEED_PRICES } from "./seed-prices";
 export class MockDataStore implements DataStore {
   private trips = new Map<string, Trip>();
   private expenses: Expense[] = [];
+  private reserved = new Set<string>(); // codes handed out before their trip exists
 
   constructor() {
     // a demo trip so the Interface has something to show straight away
@@ -26,16 +27,37 @@ export class MockDataStore implements DataStore {
   async listPrices(city: string) { return SEED_PRICES.filter((p) => p.city === city.toLowerCase()); }
   async getPrice(city: string, itemId: string) { return SEED_PRICES.find((p) => p.city === city.toLowerCase() && p.id === itemId) ?? null; }
 
-  async createTrip(t: Omit<Trip, "id" | "inviteCode">) {
-    const trip: Trip = { ...t, id: randomUUID(), inviteCode: "BAL-" + Math.random().toString(36).slice(2, 7).toUpperCase() };
+  private freshCode() {
+    for (;;) {
+      const code = "BAL-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+      if (!this.reserved.has(code) && ![...this.trips.values()].some((x) => x.inviteCode === code)) return code;
+    }
+  }
+  async reserveInviteCode() { const code = this.freshCode(); this.reserved.add(code); return code; }
+  async isInviteReserved(code: string) { return this.reserved.has(code.trim().toUpperCase()); }
+  async createTrip(t: Omit<Trip, "id" | "inviteCode"> & { inviteCode?: string }) {
+    const wanted = t.inviteCode?.trim().toUpperCase();
+    const taken = !wanted || [...this.trips.values()].some((x) => x.inviteCode === wanted);
+    const inviteCode = taken ? this.freshCode() : wanted!;
+    this.reserved.delete(inviteCode);
+    const trip: Trip = { ...t, id: randomUUID(), inviteCode };
     this.trips.set(trip.id, trip);
     return trip;
   }
   async getTrip(id: string) { return this.trips.get(id) ?? null; }
+  async getTripByCode(code: string) {
+    return [...this.trips.values()].find((t) => t.inviteCode.toLowerCase() === code.trim().toLowerCase()) ?? null;
+  }
   async joinTrip(code: string, name: string, email?: string) {
-    const trip = [...this.trips.values()].find((t) => t.inviteCode === code);
+    const trip = await this.getTripByCode(code);
     if (!trip) return null;
-    trip.people.push({ id: randomUUID(), name, email, isMe: false, status: "joined" });
+    const invited = trip.people.find((p) => p.status === "invited" && p.name.trim().toLowerCase() === name.trim().toLowerCase());
+    if (invited) { // claim the invited person instead of adding a duplicate
+      invited.status = "joined";
+      if (email) invited.email = email;
+    } else {
+      trip.people.push({ id: randomUUID(), name, email, isMe: false, status: "joined" });
+    }
     return trip;
   }
   async listExpenses(tripId: string) { return this.expenses.filter((e) => e.tripId === tripId); }

@@ -9,18 +9,23 @@ Money is always in the trip's **local currency** (MAD).
 |---|---|---|---|
 | GET | `/api/health` | all | → `{ ok, modes: { data, voice, ai } }` |
 | GET | `/api/prices?city=marrakech` | Data | → `PriceItem[]` |
-| POST | `/api/trips` | Data | `Trip` without `id`, `inviteCode` → `Trip` |
+| POST | `/api/trips` | Data | `Trip` without `id`, `inviteCode` → `Trip`. `budgetHome` = one person's share, optional `groupBudgetHome` = the total. The server makes every person id; the creator is the person with `isMe: true`. |
 | GET | `/api/trips/:id` | Data | → `Trip` |
-| POST | `/api/trips/join` | Data | `{ code, name, email? }` → `Trip` |
+| POST | `/api/invite-codes` | Data | → `{ code }`. Hands out an invite code before the trip exists, so the invite link can be shown while the creator is still in setup. Pass it as `inviteCode` to `POST /api/trips`. |
+| GET | `/api/trips/by-code/:code` | Data | → `TripByCode` `{ tripId, ownerName, city, start, end, people: [names], perPersonBudgetHome, homeCurrency? }`. 404 with a plain error for a bad code. Used by the join screen. |
+| POST | `/api/trips/join` | Data | `{ code, name, email? }` → `JoinResult` (`Trip` + `personId`). A person who is still `invited` with the same name (any capitals) is **claimed**, not duplicated. |
 | GET | `/api/trips/:id/expenses` | Data | → `Expense[]` |
 | POST | `/api/trips/:id/expenses` | Data | `{ item, category, amount, paidBy, shares }` → `Expense` |
-| GET | `/api/trips/:id/summary` | Data | → `Summary` |
+| GET | `/api/trips/:id/summary?personId=<id>` | Data | → `Summary` worked out for **that person**: `myBudget` (group ÷ people), `mySpent`, `myLeft`, `groupSpent`, `groupLeft`, `net`, and `transfers` (fewest payments to settle up). No `personId` = the trip creator. |
 | POST | `/api/parse` | AI | `{ city, text? , imageBase64? }` → `ParsedAsk` (422 if not understood) |
 | POST | `/api/check` | shared logic | `{ tripId, itemId, amount, style }` → `CheckResult` |
 | POST | `/api/voice/stt` | Voice | raw audio (`content-type: audio/webm`) → `{ text }` |
 | POST | `/api/voice/tts` | Voice | `{ text, lang }` → mp3 audio, or **204** + `x-fairfare-mock: 1` (use the phone's voice) |
 
 A demo trip with id **`demo`** always exists in mock mode (Renata, Bella, Dewi, budget £600).
+
+**People are always ids.** `paidBy` and the keys of `shares` are person ids (never names). The API refuses an id that isn't on the trip.
+**Balances:** `net = what I paid − what I owe`. A positive `net` means others owe me.
 
 ## The main flow
 

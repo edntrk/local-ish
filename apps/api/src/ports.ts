@@ -9,8 +9,15 @@ import type { AdviceDraft, CheckResult, Expense, NewExpense, ParsedAsk, ParseReq
 export interface DataStore {
   listPrices(city: string): Promise<PriceItem[]>;
   getPrice(city: string, itemId: string): Promise<PriceItem | null>;
-  createTrip(trip: Omit<Trip, "id" | "inviteCode">): Promise<Trip>;
+  /** `inviteCode` may be one handed out earlier by reserveInviteCode (so the link can be shown before the trip exists). */
+  createTrip(trip: Omit<Trip, "id" | "inviteCode"> & { inviteCode?: string }): Promise<Trip>;
+  /** A fresh invite code nobody else has. Used when the invite link is shown while the creator is still setting up. */
+  reserveInviteCode(): Promise<string>;
+  /** Optional: true for a code that was handed out but whose trip isn't created yet (lets the join screen say "still setting up"). */
+  isInviteReserved?(inviteCode: string): Promise<boolean>;
   getTrip(tripId: string): Promise<Trip | null>;
+  getTripByCode(inviteCode: string): Promise<Trip | null>;
+  /** Joins by invite code. If an "invited" person has the same name (any capitals) they are claimed, not duplicated. */
   joinTrip(inviteCode: string, name: string, email?: string): Promise<Trip | null>;
   listExpenses(tripId: string): Promise<Expense[]>;
   addExpense(expense: NewExpense): Promise<Expense>;

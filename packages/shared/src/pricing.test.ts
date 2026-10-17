@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyAdvice, checkPrice, clampPlan, equalShares, perPersonBudget, rangeFor, summarise, templatePhrase, verdictFor } from "./pricing";
-import { CheckResult, Trip, type PriceItem } from "./contracts";
+import { applyAdvice, balances, checkPrice, clampPlan, equalShares, perPersonBudget, rangeFor, settleUp, summarise, templatePhrase, verdictFor } from "./pricing";
+import { CheckResult, NewExpense, Trip, type PriceItem } from "./contracts";
 
 const taxi: PriceItem = { id: "taxi-airport", city: "bali", category: "transport", name: "Taxi: airport to Seminyak", min: 150000, max: 250000, currency: "IDR", tip: "Use Grab or the official counter." };
 const trip: Trip = {
@@ -88,5 +88,66 @@ describe("splitting", () => {
     expect(sum.mySpent).toBe(45);
     expect(sum.groupSpent).toBe(90);
     expect(sum.owes.find((o) => o.personId === "bella")?.amount).toBe(30);
+  });
+});
+
+describe("per viewer: summary, balances and settle up", () => {
+  // Renata (me) paid 300,000 split 3 ways; Bella paid 90,000 split between Bella and Dewi; Dewi paid a 60,000 solo drink
+  const group: Trip = { ...trip, groupBudgetHome: 1800, budgetHome: 600 };
+  const ex = (id: string, paidBy: string, amount: number, shares: Record<string, number>) =>
+    ({ id, tripId: "t1", item: id, category: "food" as const, amount, paidBy, shares, createdAt: "" });
+  const spend = [
+    ex("taxi", "me", 300000, { me: 100000, bella: 100000, dewi: 100000 }),
+    ex("lunch", "bella", 90000, { bella: 45000, dewi: 45000 }),
+    ex("drink", "dewi", 60000, { dewi: 60000 }),
+  ];
+
+  it("works out everything from the chosen person's point of view", () => {
+    const renata = summarise(group, spend, "me");
+    expect(renata.viewerId).toBe("me");
+    expect(renata.myBudget).toBe(600 * 21500);
+    expect(renata.mySpent).toBe(100000);
+    expect(renata.myLeft).toBe(600 * 21500 - 100000);
+    expect(renata.groupBudget).toBe(1800 * 21500);
+    expect(renata.groupSpent).toBe(390000); // taxi + lunch are shared, the solo drink is not
+    expect(renata.groupLeft).toBe(1800 * 21500 - 390000);
+    const bella = summarise(group, spend, "bella");
+    expect(bella.mySpent).toBe(145000);
+    expect(bella.myBudget).toBe(renata.myBudget);
+    expect(bella.groupSpent).toBe(renata.groupSpent); // the group pot is the same for everyone
+  });
+  it("no personId means the trip creator, so old callers keep working", () => {
+    expect(summarise(group, spend).viewerId).toBe("me");
+    expect(summarise(group, spend, "nobody").viewerId).toBe("me");
+  });
+  it("net is what I paid minus what I owe, and nets add up to zero", () => {
+    const net = balances(group, spend);
+    expect(net).toEqual({ me: 200000, bella: -55000, dewi: -145000 });
+    expect(Object.values(net).reduce((a, b) => a + b, 0)).toBe(0);
+    expect(summarise(group, spend, "bella").net).toBe(-55000);
+  });
+  it("settle up: mixed payers, fewest transfers", () => {
+    expect(settleUp(group, spend)).toEqual([
+      { fromId: "dewi", fromName: "Dewi", toId: "me", toName: "Renata", amount: 145000 },
+      { fromId: "bella", fromName: "Bella", toId: "me", toName: "Renata", amount: 55000 },
+    ]);
+    // one debtor owes two creditors: 150 splits into 100 + 50, still 2 payments for 3 people
+    const two = [ex("a", "me", 100, { dewi: 100 }), ex("b", "bella", 50, { dewi: 50 })];
+    const t = settleUp(group, two);
+    expect(t).toHaveLength(2);
+    expect(t.map((x) => [x.fromId, x.toId, x.amount])).toEqual([["dewi", "me", 100], ["dewi", "bella", 50]]);
+  });
+  it("is all settled when everyone paid their own way", () => {
+    expect(settleUp(group, [ex("solo", "me", 50, { me: 50 })])).toEqual([]);
+    expect(settleUp(group, [ex("even", "me", 90, { me: 30, bella: 30, dewi: 30 }), ex("back", "bella", 30, { me: 30 }), ex("back2", "dewi", 30, { me: 30 })]).length).toBe(0);
+  });
+  it("splits that don't add up to the amount are refused by the contract", () => {
+    const bad = { tripId: "t1", item: "Tea", category: "food", amount: 100, paidBy: "me", shares: { me: 50 } };
+    expect(NewExpense.safeParse(bad).success).toBe(false);
+    expect(NewExpense.safeParse({ ...bad, shares: { me: 50, bella: 50 } }).success).toBe(true);
+  });
+  it("a joiner changes the head count, so everyone's share shrinks", () => {
+    const four = { ...group, people: [...group.people, { id: "rio", name: "Rio", isMe: false, status: "joined" as const }] };
+    expect(summarise(four, [], "me").myBudget).toBe((1800 * 21500) / 4);
   });
 });

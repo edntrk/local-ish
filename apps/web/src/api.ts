@@ -2,10 +2,17 @@
  * INTERFACE role: the ONLY place the app talks to the backend.
  * Every function is typed from the shared contract, so if the contract changes, TypeScript tells you what broke.
  */
-import type { CheckRequest, CheckResult, Expense, Health, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip } from "@fairfare/shared";
+import type { CheckRequest, CheckResult, Expense, Health, JoinResult, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip, TripByCode } from "@fairfare/shared";
+
+const OFFLINE = "Can't reach the server. Check your connection and try again.";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch("/api" + path, { headers: { "content-type": "application/json" }, ...init });
+  let res: Response;
+  try {
+    res = await fetch("/api" + path, { headers: { "content-type": "application/json" }, ...init });
+  } catch {
+    throw new Error(OFFLINE); // a plain sentence instead of "Failed to fetch"
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Request failed (${res.status})`);
@@ -18,16 +25,22 @@ export const api = {
   health: () => req<Health>("/health"),
   prices: (city = "marrakech") => req<PriceItem[]>(`/prices?city=${encodeURIComponent(city)}`),
 
-  createTrip: (t: Omit<Trip, "id" | "inviteCode">) => post<Trip>("/trips", t),
+  /** an invite code before the trip exists, so the invite link can show during setup */
+  reserveInviteCode: () => post<{ code: string }>("/invite-codes", {}),
+  createTrip: (t: Omit<Trip, "id" | "inviteCode"> & { inviteCode?: string }) => post<Trip>("/trips", t),
   getTrip: (id: string) => req<Trip>(`/trips/${id}`),
-  joinTrip: (code: string, name: string, email?: string) => post<Trip>("/trips/join", { code, name, email }),
+  /** what the join screen shows before anyone has joined */
+  tripByCode: (code: string) => req<TripByCode>(`/trips/by-code/${encodeURIComponent(code)}`),
+  /** joins by invite code; `personId` is who you became (a new person, or the invited person you claimed) */
+  joinTrip: (code: string, name: string, email?: string) => post<JoinResult>("/trips/join", { code, name, email }),
 
   parse: (r: ParseRequest) => post<ParsedAsk>("/parse", r),
   check: (r: CheckRequest) => post<CheckResult>("/check", r),
 
   addExpense: (tripId: string, e: Omit<NewExpense, "tripId">) => post<Expense>(`/trips/${tripId}/expenses`, e),
   expenses: (tripId: string) => req<Expense[]>(`/trips/${tripId}/expenses`),
-  summary: (tripId: string) => req<Summary>(`/trips/${tripId}/summary`),
+  /** everything worked out from one person's point of view; no personId = the trip creator */
+  summary: (tripId: string, personId?: string) => req<Summary>(`/trips/${tripId}/summary${personId ? `?personId=${encodeURIComponent(personId)}` : ""}`),
 
   /** returns text heard in the recording */
   speechToText: async (audio: Blob) => {

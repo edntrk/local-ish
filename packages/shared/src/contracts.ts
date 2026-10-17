@@ -85,6 +85,10 @@ export const Expense = z.object({
 });
 export type Expense = z.infer<typeof Expense>;
 
+/** One payment that settles part of what people owe each other. */
+export const Transfer = z.object({ fromId: z.string(), fromName: z.string(), toId: z.string(), toName: z.string(), amount: z.number() });
+export type Transfer = z.infer<typeof Transfer>;
+
 export const Summary = z.object({
   tripId: z.string(),
   currency: z.string(),
@@ -96,6 +100,13 @@ export const Summary = z.object({
   byCategoryMine: z.record(Category, z.number()),
   byCategoryGroup: z.record(Category, z.number()),
   owes: z.array(z.object({ personId: z.string(), name: z.string(), amount: z.number() })),
+  // ---- added later, all optional: the same numbers worked out for ONE viewer (see GET /api/trips/:id/summary?personId=) ----
+  viewerId: z.string().optional(), // whose point of view this is
+  myBudget: z.number().optional(), // group budget / number of people (same as `budget`)
+  groupBudget: z.number().optional(), // the whole group's budget in local currency
+  groupLeft: z.number().optional(), // groupBudget - groupSpent
+  net: z.number().optional(), // what I paid minus what I owe; above 0 means others owe me
+  transfers: z.array(Transfer).optional(), // fewest payments that settle everyone up
 });
 export type Summary = z.infer<typeof Summary>;
 
@@ -166,6 +177,24 @@ export const CheckResult = z.object({
     .optional(),
 });
 export type CheckResult = z.infer<typeof CheckResult>;
+
+/* ---------- invites ---------- */
+/** What the join screen shows before someone has joined: GET /api/trips/by-code/:code */
+export const TripByCode = z.object({
+  tripId: z.string(),
+  ownerName: z.string(),
+  city: z.string(),
+  start: z.string(),
+  end: z.string(),
+  people: z.array(z.string()), // names of everyone already on the trip (joined or invited)
+  perPersonBudgetHome: z.number(), // the joiner's budget share, in home currency
+  homeCurrency: z.string().optional(),
+});
+export type TripByCode = z.infer<typeof TripByCode>;
+
+/** POST /api/trips/join answers with the trip plus which person the joiner became (new, or a claimed invite). */
+export const JoinResult = Trip.extend({ personId: z.string().optional() });
+export type JoinResult = z.infer<typeof JoinResult>;
 
 /* ---------- health ---------- */
 export const Health = z.object({

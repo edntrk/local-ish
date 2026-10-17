@@ -1,11 +1,14 @@
+import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
-import { ZodError } from "zod";
-import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, checkPrice, summarise } from "@fairfare/shared";
+import { ZodError, z } from "zod";
+import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, summarise } from "@fairfare/shared";
 import type { AdviceWriter, AskParser, DataStore, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
 
 export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; modes: { data: string; voice: string; ai: string } };
+
+const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new one.";
 
 /** wraps async route handlers so errors reach the error handler */
 const h = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
@@ -23,8 +26,23 @@ export function createApp({ data, voice, ai, advisor, modes }: Deps) {
 
   /* ----- trips, expenses, summary (Data) ----- */
   app.post("/api/trips", h(async (req, res) => {
-    const body = Trip.omit({ id: true, inviteCode: true }).parse(req.body);
-    res.status(201).json(await data.createTrip(body));
+    const body = Trip.omit({ id: true, inviteCode: true }).extend({ inviteCode: z.string().regex(/^[A-Za-z0-9-]{4,20}$/).optional() }).parse(req.body);
+    // person ids are always made here, never taken from the client (names or "me" would clash between trips)
+    res.status(201).json(await data.createTrip({ ...body, people: body.people.map((p) => ({ ...p, id: randomUUID() })) }));
+  }));
+  app.post("/api/invite-codes", h(async (_req, res) => res.status(201).json({ code: await data.reserveInviteCode() })));
+  app.get("/api/trips/by-code/:code", h(async (req, res) => {
+    const trip = await data.getTripByCode(req.params.code);
+    if (!trip && (await data.isInviteReserved?.(req.params.code)))
+      return res.status(404).json({ error: "Your friend is still setting up this trip. Try again in a minute." });
+    if (!trip) return res.status(404).json({ error: INVITE_ERROR });
+    const owner = trip.people.find((p) => p.isMe) ?? trip.people[0];
+    res.json({
+      tripId: trip.id, ownerName: owner.name, city: trip.city, start: trip.start, end: trip.end,
+      people: trip.people.map((p) => p.name),
+      perPersonBudgetHome: Math.round((budgetLocal(trip) / trip.rateToLocal) * 100) / 100,
+      homeCurrency: trip.homeCurrency,
+    });
   }));
   app.get("/api/trips/:id", h(async (req, res) => {
     const trip = await data.getTrip(req.params.id);
@@ -32,19 +50,32 @@ export function createApp({ data, voice, ai, advisor, modes }: Deps) {
   }));
   app.post("/api/trips/join", h(async (req, res) => {
     const { code, name, email } = req.body ?? {};
-    if (!code || !name) return res.status(400).json({ error: "Send code and name" });
-    const trip = await data.joinTrip(code, name, email);
-    trip ? res.json(trip) : res.status(404).json({ error: "That invite link doesn't exist" });
+    if (!code || !String(name ?? "").trim()) return res.status(400).json({ error: "Type your name to join." });
+    const before = await data.getTripByCode(String(code));
+    // copy the statuses first: a store may hand back the same object it then changes
+    const was = new Map((before?.people ?? []).map((p) => [p.id, p.status]));
+    const trip = before && (await data.joinTrip(String(code), String(name).trim(), email));
+    if (!before || !trip) return res.status(404).json({ error: INVITE_ERROR });
+    // who did the joiner become? a brand-new person, or the invited person they claimed
+    const me = trip.people.find((p) => !was.has(p.id)) ?? trip.people.find((p) => was.get(p.id) === "invited" && p.status === "joined");
+    res.json({ ...trip, personId: me?.id });
   }));
   app.get("/api/trips/:id/expenses", h(async (req, res) => res.json(await data.listExpenses(req.params.id))));
   app.post("/api/trips/:id/expenses", h(async (req, res) => {
     const body = NewExpense.parse({ ...req.body, tripId: req.params.id });
+    const trip = await data.getTrip(body.tripId);
+    if (!trip) return res.status(404).json({ error: "Trip not found" });
+    const ids = new Set(trip.people.map((p) => p.id));
+    if (!ids.has(body.paidBy) || Object.keys(body.shares).some((id) => !ids.has(id)))
+      return res.status(400).json({ error: "Someone in this split isn't on the trip." });
     res.status(201).json(await data.addExpense(body));
   }));
   app.get("/api/trips/:id/summary", h(async (req, res) => {
     const trip = await data.getTrip(req.params.id);
     if (!trip) return res.status(404).json({ error: "Trip not found" });
-    res.json(summarise(trip, await data.listExpenses(trip.id)));
+    const personId = typeof req.query.personId === "string" && req.query.personId ? req.query.personId : undefined;
+    if (personId && !trip.people.some((p) => p.id === personId)) return res.status(404).json({ error: "That person isn't on this trip." });
+    res.json(summarise(trip, await data.listExpenses(trip.id), personId)); // no personId = the trip creator, as before
   }));
 
   /* ----- understanding the ask (AI) ----- */
