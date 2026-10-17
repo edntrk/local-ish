@@ -2,6 +2,7 @@
  * Pure price-check logic. No network, no database, so it is easy to test.
  * Used by the API. The Interface can also use it for instant offline answers.
  */
+import { cleanText } from "./text";
 import { CATEGORIES, type BargainMode, type Category, type CheckResult, type Expense, type Person, type PriceItem, type Style, type Summary, type Transfer, type Trip, type Verdict } from "./contracts";
 
 type Plan = NonNullable<CheckResult["plan"]>;
@@ -134,21 +135,25 @@ export type AdviceDraft = { advice: string; plan?: Plan; phrase?: { local: strin
 
 export function applyAdvice(base: CheckResult, draft: AdviceDraft): CheckResult {
   const mode = base.bargainMode ?? "bargain";
-  const words = draft.advice.trim();
+  // every sentence the AI wrote is cleaned (control characters, code-like tokens, the wrong script, too long); a field that fails keeps its template
+  const advice = cleanText(draft.advice, { max: 200 });
   // in a fixed-price place any talk of haggling is dropped and the template advice stays
-  const out: CheckResult = { ...base, advice: words && !(mode === "fixed" && HAGGLE.test(words)) ? words : base.advice };
+  const out: CheckResult = { ...base, advice: advice && !(mode === "fixed" && HAGGLE.test(advice)) ? advice : base.advice };
   if (mode === "fixed") {
-    const tips = (draft.tips ?? []).map((t) => t.trim()).filter((t) => t && t.length <= 200 && !HAGGLE.test(t)).slice(0, 3);
+    const tips = (draft.tips ?? []).map((t) => cleanText(t, { max: 200 })).filter((t): t is string => !!t && !HAGGLE.test(t)).slice(0, 3);
     out.tips = tips.length >= 2 ? tips : base.tips; // fewer than two usable tips: use the template ones
     return out;
   }
   if (!base.plan) return out; // great / fair, or "ask" mode: advice only
   const plan = draft.plan ? clampPlan(draft.plan, base.range, base.currency) : base.plan;
   out.plan = plan;
-  // the phrase must say the same number as the plan; otherwise use the template so words and numbers agree
+  // the phrase must be clean, short, and say the same number as the plan; otherwise use the template so words and numbers agree
   const ribu = String(Math.round(plan.openWith / 1000));
-  out.phrase = draft.phrase && new RegExp(`\\b${ribu}\\b`).test(draft.phrase.local)
-    ? { ...draft.phrase, lang: "id-ID", localLang: "id-ID" }
+  const local = cleanText(draft.phrase?.local, { max: 80 });
+  const english = cleanText(draft.phrase?.english, { max: 80 });
+  const polite = draft.phrase?.polite === undefined ? undefined : cleanText(draft.phrase.polite, { max: 80 });
+  out.phrase = local && english && new RegExp(`\\b${ribu}\\b`).test(local)
+    ? { local, english, ...(polite ? { polite } : {}), lang: "id-ID", localLang: "id-ID" }
     : templatePhrase(plan.openWith, base.currency);
   return out;
 }

@@ -3,7 +3,7 @@
  * Unknown item -> research it -> check the answer in code -> save it with origin 'web' -> use it like any other price.
  * Only search results are ever saved. The tourist's own quote is never an input here.
  */
-import { CATEGORIES, type PriceItem } from "@fairfare/shared";
+import { CATEGORIES, cleanText, type PriceItem } from "@fairfare/shared";
 import type { DataStore, LearnResult, PriceLearner, PriceResearcher, ResearchedPrice } from "../ports";
 
 export const STALE_DAYS = 30;
@@ -30,12 +30,13 @@ export function validateResearch(r: ResearchedPrice): { ok: true; item: Omit<Pri
   const category = (CATEGORIES as readonly string[]).includes(said) ? (said as PriceItem["category"]) : "other";
   const sources = [...new Set(r.sources.filter(isUrl))].slice(0, 3);
   if (!sources.length) return { ok: false, reason: "no source URL" };
-  const name = r.name.trim();
-  if (!name || name.length > 60) return { ok: false, reason: "name is empty or over 60 characters" };
+  const name = cleanText(r.name, { max: 60 }); // clean, plain words, at most 60 characters
+  if (!name) return { ok: false, reason: "name is empty, junk, or over 60 characters" };
   const bargain = r.bargain === "bargain" || r.bargain === "ask" || r.bargain === "fixed" ? r.bargain : undefined; // missing or odd: the category decides later
+  // (a tip that fails the cleaning is dropped; the price itself is still fine)
   const id = slugify(r.id || name);
   if (!id) return { ok: false, reason: "no usable slug" };
-  return { ok: true, sources, item: { id, category, name, min, max, currency: "IDR", tip: r.tip.trim().slice(0, 200), source: sources[0], ...(bargain ? { bargain } : {}) } };
+  return { ok: true, sources, item: { id, category, name, min, max, currency: "IDR", tip: cleanText(r.tip, { max: 200 }) ?? "", source: sources[0], ...(bargain ? { bargain } : {}) } };
 }
 
 export function createPriceLearner(data: DataStore, researcher: PriceResearcher): PriceLearner {

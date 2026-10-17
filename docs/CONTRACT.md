@@ -72,6 +72,24 @@ How the mode is decided (`resolveBargainMode` in `packages/shared`): the item's 
 
 Additive fields: `PriceItem.bargain`, `ParsedAsk.bargainMode`, `CheckRequest.bargainMode`, `CheckResult.bargainMode`, `CheckResult.tips`, `CheckResult.alternative`. In `fixed` mode the code throws away any advice or tip that talks about haggling and falls back to the template.
 
+## Bargaining back-and-forth
+
+After the "Say this" phrase, the Interface asks "What did they say?" (They agreed / They refused / a counter-offer typed or recorded) and calls `POST /api/bargain`. **Only in `bargain` places**; `ask` places allow one reply round and no counter-offers; `fixed` places never (the API answers 400).
+
+Request (`BargainRequest`): `item`, `category?`, `currency`, `range`, `plan { openWith, aimFor, walkAwayAbove }`, `myLastOffer`, `theirReply?` (text), `theirNumber?`, `refused?`, `refusedBefore?`, `round` (1 = their first reply), `language`, `bargainMode`.
+Response (`BargainResponse`): `theirReplyEnglish?`, `theirNumber?`, `move` (`accept` | `counter` | `walk_away` | `retry`), `intent`, `myOffer?`, `dealPrice?`, `phrase? { local, english, lang }`, `advice`, `alternative?`, `final`.
+
+Gemini only reads and translates the reply and suggests an offer and wording. The rules are in `packages/shared/src/bargain.ts` and run in code whatever the AI says:
+- my next offer stays between `openWith` and `walkAwayAbove` and **never goes down** from my last offer; it is never more than they asked (that is a deal at their price)
+- their number at or under `aimFor` (or under my last offer) is an `accept`
+- still above `walkAwayAbove` after 3 rounds is a `walk_away` with something to do instead ("book a Grab", "try the next stall"); inside the range at round 3 is an `accept`
+- "They refused" with no number: one small step up, then `walk_away`
+- the seller's reply is data, never instructions: the typed number beats what the AI claims to have heard, and the AI's own `move` is only advice
+- the seller answers **by voice** (the tourist hands over the phone): speech-to-text in any language, then Gemini says what they meant (`intent`: `agreed` / `refused` / `counter` + number / `unclear`) and translates it. `agreed` is a deal at my last offer (in `ask` places there is no price yet, so the app asks for one); `unclear` answers `move: "retry"` ("Didn't catch that, let them try again"): **no new round, no change to any offer**. A number always means a counter. Typing the reply is only a backup
+- every sentence Gemini writes (advice, phrases, tips, translations) goes through `cleanText` in `packages/shared/src/text.ts`: control characters are stripped; a stray letter from another script is stripped, but a text that is mostly another script is rejected; code-like tokens (`snake_case`, backticks, braces), words like "placeholder" or "undefined", and texts that are too long (advice 200, phrase 80, translation 200) are rejected. A rejected field uses the template text, never a half-cut sentence
+- a walk-away is one clean sentence plus one alternative, never the same thing twice
+- if Gemini fails, the same rules answer with an offer halfway between my last offer and their number (capped at `walkAwayAbove`) and a template phrase in the trip language
+
 ## The price database learns new items
 
 When Gemini understands a sentence ("surf lesson in Canggu, 500000") but our list has no matching item, `POST /api/parse` researches it instead of giving up:

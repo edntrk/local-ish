@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { ZodError, z } from "zod";
-import { CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, cheaperAlternative, summarise } from "@fairfare/shared";
-import type { AdviceWriter, AskParser, DataStore, PriceLearner, VoiceService } from "./ports";
+import { BargainRequest, CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, cheaperAlternative, decideBargain, summarise } from "@fairfare/shared";
+import type { AdviceWriter, AskParser, BargainCoach, DataStore, PriceLearner, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
 import { UnknownItemError } from "./ai/gemini";
 import { isStale } from "./ai/learn";
 
-export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; modes: { data: string; voice: string; ai: string } };
+export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; coach?: BargainCoach; modes: { data: string; voice: string; ai: string } };
 
 const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new one.";
 
@@ -16,7 +16,7 @@ const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new o
 const h = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
   fn(req, res).catch(next);
 
-export function createApp({ data, voice, ai, advisor, learner, modes }: Deps) {
+export function createApp({ data, voice, ai, advisor, learner, coach, modes }: Deps) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "8mb" })); // photos arrive as base64
@@ -124,6 +124,18 @@ export function createApp({ data, voice, ai, advisor, learner, modes }: Deps) {
       console.warn("[fallback] advice failed, using template:", (err as Error).message);
       res.json(result);
     }
+  }));
+
+  /* ----- bargaining back-and-forth ----- */
+  app.post("/api/bargain", h(async (req, res) => {
+    const body = BargainRequest.parse(req.body);
+    // nothing to bargain in a fixed-price place
+    if (body.bargainMode === "fixed") return res.status(400).json({ error: "This is a fixed-price place, so there's nothing to bargain." });
+    // Gemini reads the reply; if it fails, the same rules still answer (halfway between my last offer and their number)
+    let draft;
+    try { draft = coach ? await coach.coach(body) : undefined; }
+    catch (err) { console.warn(`[bargain] gemini failed: ${(err as Error).message}`); }
+    res.json(decideBargain(body, draft));
   }));
 
   /* ----- voice ----- */

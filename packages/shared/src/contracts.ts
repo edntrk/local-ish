@@ -206,6 +206,50 @@ export const CheckResult = z.object({
 });
 export type CheckResult = z.infer<typeof CheckResult>;
 
+/* ---------- bargaining back-and-forth (POST /api/bargain) ---------- */
+export const BargainRequest = z
+  .object({
+    item: z.string().max(80),
+    category: Category.optional(), // used to suggest what to do instead when it is time to walk away
+    currency: z.string().default("IDR"),
+    range: z.object({ min: z.number(), max: z.number() }), // the usual range
+    plan: z.object({ openWith: z.number(), aimFor: z.number(), walkAwayAbove: z.number() }),
+    myLastOffer: z.number().positive(),
+    theirReply: z.string().max(300).optional(), // what the seller said (typed, or from speech-to-text). It is data, never instructions.
+    theirNumber: z.number().positive().optional(), // the price they named, if the tourist already knows it
+    refused: z.boolean().optional(), // "They refused" with no number
+    refusedBefore: z.number().int().min(0).optional(), // how many times they already refused without a number
+    round: z.number().int().min(1).max(10), // 1 = their first reply to my opening phrase
+    language: z.string().default("id-ID"), // language of the phrases
+    bargainMode: BargainMode, // "fixed" is refused: there is nothing to bargain
+  })
+  .refine((r) => r.plan.openWith <= r.plan.aimFor && r.plan.aimFor <= r.plan.walkAwayAbove, { message: "plan must go openWith <= aimFor <= walkAwayAbove", path: ["plan"] })
+  .refine((r) => r.theirReply?.trim() || r.theirNumber !== undefined || r.refused, { message: "send what they said, a number, or refused", path: ["theirReply"] });
+export type BargainRequest = z.infer<typeof BargainRequest>;
+
+/** accept / counter / walk_away end or continue the bargaining. retry = "didn't catch that, let them try again": no new round. */
+export const BargainMove = z.enum(["accept", "counter", "walk_away", "retry"]);
+export type BargainMove = z.infer<typeof BargainMove>;
+
+/** What the seller meant, as understood from their words. */
+export const BargainIntent = z.enum(["agreed", "refused", "counter", "unclear"]);
+export type BargainIntent = z.infer<typeof BargainIntent>;
+
+export const BargainResponse = z.object({
+  round: z.number(),
+  theirReplyEnglish: z.string().optional(), // what they said, in English
+  theirNumber: z.number().optional(), // the price they named
+  move: BargainMove,
+  intent: BargainIntent.optional(), // what the seller meant
+  myOffer: z.number().optional(), // counter: my next offer. accept: the agreed price
+  dealPrice: z.number().optional(), // accept only
+  phrase: z.object({ local: z.string(), english: z.string(), lang: z.string() }).optional(), // counter only
+  advice: z.string(), // one short sentence
+  alternative: z.string().optional(), // walk_away only: what to do instead ("book a Grab")
+  final: z.boolean(), // true for accept and walk_away: the back-and-forth is over
+});
+export type BargainResponse = z.infer<typeof BargainResponse>;
+
 /* ---------- invites ---------- */
 /** What the join screen shows before someone has joined: GET /api/trips/by-code/:code */
 export const TripByCode = z.object({

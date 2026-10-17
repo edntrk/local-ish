@@ -2,7 +2,10 @@
  * INTERFACE role: the ONLY place the app talks to the backend.
  * Every function is typed from the shared contract, so if the contract changes, TypeScript tells you what broke.
  */
-import type { CheckRequest, CheckResult, Expense, Health, JoinResult, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip, TripByCode } from "@fairfare/shared";
+import type { BargainResponse, CheckRequest, CheckResult, Expense, Health, JoinResult, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip, TripByCode } from "@fairfare/shared";
+
+/** what the page sends for one bargaining step (currency and language have defaults on the server) */
+export type BargainReq = Omit<import("@fairfare/shared").BargainRequest, "currency" | "language"> & { currency?: string; language?: string };
 
 const OFFLINE = "Can't reach the server. Check your connection and try again.";
 
@@ -36,6 +39,8 @@ export const api = {
 
   parse: (r: ParseRequest) => post<ParsedAsk>("/parse", r),
   check: (r: CheckRequest) => post<CheckResult>("/check", r),
+  /** one step of the bargaining back-and-forth: what they said in, my next move out */
+  bargain: (r: BargainReq) => post<BargainResponse>("/bargain", r),
 
   addExpense: (tripId: string, e: Omit<NewExpense, "tripId">) => post<Expense>(`/trips/${tripId}/expenses`, e),
   expenses: (tripId: string) => req<Expense[]>(`/trips/${tripId}/expenses`),

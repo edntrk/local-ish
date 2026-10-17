@@ -274,6 +274,20 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .src{font-size:12px;font-weight:600;color:var(--muted);margin:0}
 .src a{color:inherit;text-decoration:underline}
 .src .status{margin:0 4px 0 0}
+.bargain-chat{display:flex;flex-direction:column;gap:10px}
+.rounds{display:flex;flex-direction:column;gap:8px}
+.turn{max-width:88%;padding:8px 12px;font-weight:500;display:flex;flex-direction:column;gap:4px}
+.turn p{margin:0}
+.turn small{color:var(--muted);font-weight:500}
+.turn.me{align-self:flex-end;background:var(--surface-2);border-radius:14px 14px 4px 14px}
+.turn.them{align-self:flex-start;background:var(--surface);border:1.5px solid var(--line);border-radius:14px 14px 14px 4px}
+.big-mic{min-height:64px;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px}
+.btn.on{animation:pulse 1s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.btn.on{animation:none}}
+.turn .play{align-self:flex-start;padding:4px 10px;font-size:13px}
+.deal{background:var(--good-bg);border-radius:14px;padding:12px 14px}
+.deal .big,.walk p{margin:0}
+.walk{background:var(--bad-bg);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .tiplist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
 .plan{display:flex;gap:8px;list-style:none;margin:0;padding:0}
 .plan li{flex:1;background:var(--surface);border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
@@ -387,7 +401,7 @@ const S={
   user:{name:'',email:'',age:'',country:'',home:'GBP'},
   trip:{dest:0,budget:'',touched:false,start:'2026-10-24',end:'2026-10-30',mode:'group',friends:[],newFriend:''}, // starts blank: no budget, no friends
   session:null, tripData:null, summary:null, expenses:[], extra:{}, join:null, loadErr:'', inviteEmail:'', // session + trip come from the API
-  check:{style:'local',text:'',step:null,err:'',cat:'transport',input:'text',itemId:'taxi-airport',amount:250,result:null,paid:null,paidAmt:0,paidCat:'transport',paidBy:null,saving:false,split:{mode:'equal',on:{},custom:{}},listening:false,transcript:'',photo:null,photoRead:false}
+  check:{style:'local',text:'',step:null,err:'',cat:'transport',input:'text',itemId:'taxi-airport',amount:250,result:null,paid:null,paidAmt:0,paidCat:'transport',paidBy:null,saving:false,bg:null,bgInput:'',split:{mode:'equal',on:{},custom:{}},listening:false,transcript:'',photo:null,photoRead:false}
 };
 
 const S0=JSON.stringify(S); // the starting state, kept so Reset can put everything back
@@ -615,8 +629,8 @@ function checkBody(){
   const c=S.check;
   const bar=`<div class="askbar">
       ${PHOTO_ENABLED?`<label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>`:''}
-      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening?'Listening…':c.hearing?'Processing…':c.busy?'Checking…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off" ${c.busy?'disabled':''}>
-      <button class="icon-btn ${c.listening?'on':''}" data-action="listen" aria-label="${c.listening?'Stop recording':'Say it'}" aria-pressed="${c.listening}" ${c.hearing||c.busy?'disabled':''}>${ICON.voice}</button>
+      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening&&micTarget==='check'?'Listening…':c.hearing?'Processing…':c.busy?'Checking…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off" ${c.busy?'disabled':''}>
+      <button class="icon-btn ${c.listening&&micTarget==='check'?'on':''}" data-action="listen" aria-label="${c.listening&&micTarget==='check'?'Stop recording':'Say it'}" aria-pressed="${c.listening&&micTarget==='check'}" ${c.hearing||c.busy?'disabled':''}>${ICON.voice}</button>
       <button class="icon-btn send" id="c-send" data-action="send" aria-label="Check this price" ${c.text.trim()?'':'hidden'}>${SEND}</button>
     </div>
     ${PHOTO_ENABLED?'<input id="photoIn" type="file" accept="image/*" hidden>':''}`;
@@ -698,12 +712,14 @@ function resultView(){
       <p class="muted">"${esc(ph.english)}"</p>
       <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(indo)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button>
         <button class="btn btn-ghost" data-action="speak" data-lang="id-ID" data-text="${esc(polite)}">Polite version</button></div>
-      ${c.realVoice?'':`<p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p>`}</div>`:''}
+      ${c.realVoice?'':`<p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p>`}
+      ${mode==='bargain'?bgView(mode):''}</div>`:''}
     ${c.step==='choose'&&mode==='ask'&&v!=='great'?`<div class="say">
       <p class="eyebrow">Ask politely</p>
       <p class="phrase">${esc(askPh.local)}</p>
       <p class="muted">"${esc(askPh.english)}"</p>
-      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(askPh.local)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button></div></div>`:''}
+      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(askPh.local)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button></div>
+      ${bgView('ask')}</div>`:''}
     ${c.step==='choose'&&mode==='fixed'?`<div class="say">
       <p class="eyebrow">Good to know</p>
       <ul class="tiplist">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
@@ -711,7 +727,7 @@ function resultView(){
     <p class="q">${c.step==='bargain'?'Did it work?':'What do you want to do?'}</p>
     <div class="actions3">
       ${c.step==='choose'&&bargainable?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
-      <button class="btn btn-primary" data-action="choose" data-next="pay">${c.step==='bargain'?'Pay':'Pay'}</button>
+      ${c.bg&&c.bg.done&&c.bg.done.type==='walk'?'':`<button class="btn btn-primary" data-action="choose" data-next="pay">Pay</button>`}
       <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
     </div>`;
   if(c.step==='pay') next=payForm();
@@ -876,15 +892,15 @@ const A={
   style(t){S.check.style=t.dataset.s;render()},
   money(t){S.open=S.open===t.dataset.k?null:t.dataset.k;render()},
   rmFriend(t){S.trip.friends.splice(+t.dataset.i,1);render()},
-  check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null,fresh:!!opts.fresh,sources:opts.sources||null};c.step='choose';c.scroll='new';
+  check(itemId,amount,from,said,opts={}){const c=S.check;c.err='';c.bg=null;c.bgInput='';c.result={itemId,amount,from,said,api:opts.api||null,name:opts.name||null,fresh:!!opts.fresh,sources:opts.sources||null};c.step='choose';c.scroll='new';
     if(!item(itemId)){c.paidAmt=amount;c.text='';render();scrollToEl('#check');return} // not in the database: Pay still works
     const k=calc(c.result);
     c.paidAmt=(k.v==='high'||k.v==='tooHigh')&&k.mode==='bargain'?k.plan.aimFor:amount;c.paidCat=k.p.cat;c.text='';render();scrollToEl('#check')},
   send(){sendText(S.check.text.trim(),'text',t=>t)},
   example(t){const c=S.check;c.text=EXAMPLES[+t.dataset.i];c.err='';render();const el=$('#c-ask');el&&el.focus()},
   // tap to record, tap again to stop (or it stops itself after 30s). The transcript lands in the input so you can check it, then Enter sends.
-  async listen(){
-    const c=S.check;
+  async listen(t){
+    const c=S.check,target=t&&t.dataset&&t.dataset.mic==='seller'?'seller':'check'; // the words go to the check box, or the seller's answer goes to the bargaining chat
     if(rec){stopRec();return}
     if(c.busy||c.hearing)return;
     let stream;
@@ -895,9 +911,9 @@ const A={
     catch(e){stream.getTracks().forEach(k=>k.stop());return micFail("Couldn't hear that. Try again or type it.")}
     rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
     rec.onerror=()=>{stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;micFail("Couldn't hear that. Try again or type it.")};
-    rec.onstop=()=>finishRec(stream,chunks,rec&&rec.mimeType||type||'audio/webm');
-    c.err='';c.text='';c.listening=true;render();
-    rec.start(3000);recTimer=setTimeout(stopRec,30000);startPreview()
+    rec.onstop=()=>finishRec(stream,chunks,rec&&rec.mimeType||type||'audio/webm',target);
+    c.err='';if(target==='check')c.text='';else bgOf().note='';micTarget=target;c.listening=true;render();
+    rec.start(3000);recTimer=setTimeout(stopRec,30000);if(target==='check')startPreview()
   },
   choose(t){const c=S.check,n=t.dataset.next;
     if(n==='leave'){c.result=null;c.step=null;c.photo=null;render();toast('Okay, nothing was saved');return}
@@ -936,6 +952,64 @@ const A={
 function equalShares(amount,ids){
   const each=Math.floor(amount/ids.length*100)/100,o={};ids.forEach(i=>o[i]=each);
   o[ids[0]]=Math.round((o[ids[0]]+(amount-each*ids.length))*100)/100;return o}
+let micTarget='check'; // where the recording's words are going: 'check' (the box) or 'seller' (the bargaining chat)
+/* ---------- bargaining back-and-forth: "What did they say?" ---------- */
+const syncBgSend=()=>{const b=$('#bg-send');if(b)b.hidden=!S.check.bgInput.trim()};
+// the back-and-forth for this check; my first offer is the phrase shown above it
+const bgOf=()=>S.check.bg||(S.check.bg={turns:[],myLast:calc(S.check.result).plan.openWith,round:0,refusedBefore:0,done:null,busy:false});
+function bgView(mode){
+  const c=S.check;
+  const bg=bgOf(),max=mode==='ask'?1:window.fairfareShared.MAX_ROUNDS;
+  const rec=c.listening&&micTarget==='seller',hearing=c.hearing&&micTarget==='seller';
+  const turns=bg.turns.map(t=>t.who==='you'
+    ?`<div class="turn me"><p>${esc(t.local)}</p><small>${esc(t.english)}</small><button class="btn btn-ghost play" data-action="speak" data-lang="${esc(t.lang||'id-ID')}" data-text="${esc(t.local)}">▶ Play</button></div>`
+    :`<div class="turn them"><p>${esc(t.text)}</p>${t.english&&t.english!==t.text?`<small>${esc(t.english)}</small>`:''}</div>`).join('');
+  // one clean sentence + one alternative: the alternative is left out if the sentence already says it
+  const alt=bg.done&&bg.done.alt&&!bg.done.advice.toLowerCase().includes(bg.done.alt.toLowerCase().replace(/[.!?]+$/,''))?bg.done.alt:'';
+  const end=!bg.done?'':bg.done.type==='deal'
+    ?`<div class="deal"><p class="big">Deal at ${loc(bg.done.price)} 🎉</p>${bg.done.advice?`<p class="muted">${esc(bg.done.advice)}</p>`:''}</div>`
+    :`<div class="walk"><p>${esc(bg.done.advice)}</p>${alt?`<p class="muted">${esc(alt)}</p>`:''}</div>`;
+  // the seller answers into the phone: one big button. Typing their reply is only a backup.
+  const controls=bg.done?'':`<p class="eyebrow">What did they say?</p>
+      <button class="btn btn-primary btn-block big-mic ${rec?'on':''}" data-action="listen" data-mic="seller" aria-pressed="${rec}" ${(c.hearing||bg.busy)&&!rec?'disabled':''}>${ICON.voice.replace('<svg','<svg width="22" height="22"')}${rec?"Listening… tap when they're done":hearing?'Understanding…':'Let them answer'}</button>
+      ${!bg.turns.length&&!rec?'<p class="hint">Hand them the phone, let them answer, then tap again.</p>':''}
+      <button class="link" data-action="bgType">${bg.typing?'Hide typing':'Type their reply'}</button>
+      ${bg.typing?`<div class="askbar">
+        <input id="bg-in" data-bind="check.bgInput" value="${esc(c.bgInput)}" placeholder="Their offer: 300000, 300k or 300 ribu" aria-label="What did they say?" autocomplete="off" ${bg.busy?'disabled':''}>
+        <button class="icon-btn send" id="bg-send" data-action="bgSend" aria-label="Send what they said" ${c.bgInput.trim()?'':'hidden'}>${SEND}</button>
+      </div>`:''}
+      <p class="hint">${mode==='ask'?'One reply, then you decide.':`Round ${bg.round+1} of ${max}`}</p>`;
+  return `<div class="bargain-chat">${turns?`<div class="rounds">${turns}</div>`:''}${bg.busy?'<p class="muted" role="status">Thinking…</p>':''}${bg.note&&!bg.done?`<p class="muted" role="status">${esc(bg.note)}</p>`:''}${end}${controls}</div>`}
+// one step: send what they said to /api/bargain (the rules in packages/shared decide; if the API is down the same rules run here)
+async function bgStep(extra,themText){
+  const c=S.check,bg=bgOf(),k=calc(c.result);
+  if(bg.busy||bg.done)return;
+  const req={item:k.p.name,category:k.p.cat,currency:'IDR',range:{min:k.mn,max:k.mx},plan:k.plan,myLastOffer:bg.myLast,round:bg.round+1,refusedBefore:bg.refusedBefore,language:'id-ID',bargainMode:k.mode,...extra};
+  const them={who:'them',text:themText};bg.turns.push(them);bg.busy=true;bg.note='';c.err='';render();
+  let out;
+  try{out=await window.fairfareApi.bargain(req)}
+  catch(e){const sh=window.fairfareShared;out=sh.decideBargain(sh.BargainRequest.parse(req))}
+  bg.busy=false;
+  if(out.theirReplyEnglish)them.english=out.theirReplyEnglish;
+  // "didn't catch that": their words stay in the chat, but it is not a round and nothing changes
+  if(out.move==='retry'){bg.note=out.advice;render();return}
+  bg.round++;
+  if(out.intent==='refused'&&out.theirNumber===undefined)bg.refusedBefore++;
+  if(out.move==='counter'){bg.myLast=out.myOffer;bg.turns.push({who:'you',local:out.phrase.local,english:out.phrase.english,lang:out.phrase.lang})}
+  else if(out.move==='accept'){bg.done={type:'deal',price:out.dealPrice,advice:out.advice};c.paidAmt=out.dealPrice} // Pay is pre-filled with the agreed price
+  else bg.done={type:'walk',advice:out.advice,alt:out.alternative};
+  render()}
+const bgNote=msg=>{bgOf().note=msg;render()};
+// what the seller said into the phone, any language: speech-to-text, then the same step as a typed reply
+function sellerSaid(text){
+  const t=(text||'').trim();
+  if(!t)return bgNote("Didn't catch that, let them try again.");
+  const n=window.fairfareShared.lastAmount(t);
+  return bgStep({theirReply:t,...(n?{theirNumber:n}:{})},t)}
+Object.assign(A,{
+  bgType(){const bg=bgOf();bg.typing=!bg.typing;render();const el=$('#bg-in');el&&el.focus()},
+  bgSend(){const c=S.check,text=c.bgInput.trim();if(!text||bgOf().busy)return;const n=window.fairfareShared.lastAmount(text);c.bgInput='';return bgStep({theirReply:text,...(n?{theirNumber:n}:{})},text)},
+});
 const MIC_TYPES=['audio/webm','audio/mp4','audio/ogg']; // first one this browser can record
 let rec=null,recTimer=0,preview=null; // the active MediaRecorder, its 30s timer, and the live-caption recogniser
 const micFail=msg=>{const c=S.check;c.listening=false;c.hearing=false;c.err=msg;render()};
@@ -951,15 +1025,16 @@ function startPreview(){
       S.check.text=t;const el=$('#c-ask');if(el)el.value=t;syncSend()};
     preview.onerror=()=>{};preview.start()}
   catch(e){preview=null}}
-async function finishRec(stream,chunks,type){
+async function finishRec(stream,chunks,type,target){
   const c=S.check;clearTimeout(recTimer);stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;
   c.listening=false;c.hearing=true;render();
   try{
     const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}))).trim():'';
     c.hearing=false;
+    if(target==='seller'){c.hearing=false;return sellerSaid(text)} // hand-the-phone answer: straight into the chat
     if(!text){c.text='';return micFail('No clear speech was heard. Try again or type it.')}
     c.text=text;c.err='';render();const el=$('#c-ask');el&&el.focus()
-  }catch(e){c.text='';micFail("Couldn't hear that. Try again or type it.")}}
+  }catch(e){c.hearing=false;if(target==='seller')return bgNote("Didn't catch that, let them try again.");c.text='';micFail("Couldn't hear that. Try again or type it.")}}
 // parse + check through the API (the database decides the numbers); if it is down, or has no Bali prices yet,
 // the keyword parser and local prices below answer instead, so the screen never goes blank
 // what the API stores for this trip: budgetHome is ONE person's share, groupBudgetHome the whole group's.
@@ -1107,13 +1182,14 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return
   let v=t.value;if(t.id==='p-amt')v=moneyInput(t); if(t.dataset.bind==='trip.dest') v=Number(v);
   setPath(t.dataset.bind,v);
   if(t.id==='c-ask')syncSend();
+  if(t.id==='bg-in')syncBgSend();
   if(t.dataset.bind==='user.country'){S.user.home=cty().cur} // flag + currency follow the country
   if(t.id==='f-budget')S.trip.touched=true;
   if(t.tagName==='SELECT'){ if(t.dataset.bind==='check.itemId') S.check.result=null; render() }
   else if(t.classList.contains('amt-in')){const sp=S.check.split,ps=people(),tot=ps.reduce((x,p)=>x+(sp.on[p.key]?Number(sp.custom[p.key])||0:0),0);const h=$('#s-left');if(h)h.textContent=splitLeft(Number(S.check.paidAmt)||0,tot)}
   else if(t.id==='c-amt'){const h=$('#c-amt-home');if(h)h.textContent='≈ '+fmtHome((Number(v)||0)/RATES[home()])}
   else syncOnb()});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f-friend'){e.preventDefault();A.addFriend()}if(e.key==='Enter'&&e.target.id==='c-ask'){e.preventDefault();A.send()}});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f-friend'){e.preventDefault();A.addFriend()}if(e.key==='Enter'&&e.target.id==='c-ask'){e.preventDefault();A.send()}if(e.key==='Enter'&&e.target.id==='bg-in'){e.preventDefault();A.bgSend()}});
 document.addEventListener('change',e=>{if(e.target.id==='p-amt')render();if(e.target.id==='photoIn'&&e.target.files[0]){const r=new FileReader();r.onload=()=>readPhoto(r.result);r.readAsDataURL(e.target.files[0])}});
 // open the right screen for the address: an invite, a saved trip, or the start of onboarding
 (function boot(){

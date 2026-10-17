@@ -6,13 +6,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
+import { BargainResponse, CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
 import { createApp } from "./app";
 import { MockDataStore } from "./data/mock";
 import { MockVoice } from "./voice/mock";
 import { MockAskParser } from "./ai/mock";
 import type { AdviceWriter } from "./ports";
-import type { AskParser, PriceResearcher } from "./ports";
+import type { AskParser, BargainCoach, PriceResearcher } from "./ports";
 import { UnknownItemError } from "./ai/gemini";
 import { createPriceLearner } from "./ai/learn";
 
@@ -341,5 +341,92 @@ describe("learning a new price end to end (parse -> research -> save -> check)",
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ itemId: "", item: "scuba dive", researched: false, amount: 500000 });
     vi.restoreAllMocks();
+  });
+});
+
+describe("POST /api/bargain", () => {
+  let srv: Server, url = "", coachMode: "none" | "good" | "greedy" | "down" | "unclear" | "junk" | "agreed" = "none";
+  const plan = { openWith: 150000, aimFor: 200000, walkAwayAbove: 250000 };
+  const body = (o: Record<string, unknown> = {}) => ({ item: "Taxi: airport to Seminyak", category: "transport", range: { min: 150000, max: 250000 }, plan, myLastOffer: 150000, round: 1, bargainMode: "bargain", theirReply: "tiga ratus ribu", theirNumber: 300000, ...o });
+  const post = async (o?: Record<string, unknown>) => {
+    const r = await fetch(url + "/api/bargain", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body(o)) });
+    return { status: r.status, body: await r.json() };
+  };
+  // Gemini stand-ins: a sensible coach, a greedy one that tries to break the rules, and one that is down
+  const coach: BargainCoach = { coach: async () => {
+    if (coachMode === "down") throw new Error("gemini bargain 429");
+    if (coachMode === "unclear") return { theirReplyEnglish: "", intent: "unclear" as const };
+    if (coachMode === "agreed") return { theirReplyEnglish: "Okay, deal.", intent: "agreed" as const };
+    if (coachMode === "junk") return { theirReplyEnglish: "\u5047phrase_placeholder_to_ensure_no_syntax_issue_if_any_control_char", intent: "counter" as const, theirNumber: 300000, myOffer: 190000, phrase: { local: "\u5047phrase_placeholder_to_ensure_no_syntax_issue_if_any_control_char", english: "x" }, advice: "\u5047phrase_placeholder_to_ensure_no_syntax_issue_if_any_control_char" };
+    return coachMode === "greedy"
+      ? { theirReplyEnglish: "Three hundred thousand", theirNumber: 300000, move: "accept", myOffer: 20000, phrase: { local: "Oke 20 ribu", english: "x" }, advice: "Give in." }
+      : { theirReplyEnglish: "Three hundred thousand", theirNumber: 300000, move: "counter", myOffer: 190000, phrase: { local: "Bagaimana 190 ribu saja?", english: "How about 190,000?" }, advice: "Hold your ground, kindly." };
+  } };
+  beforeAll(async () => {
+    const data = new MockDataStore();
+    srv = createApp({ data, voice: new MockVoice(), ai: new MockAskParser(), coach: { coach: (r) => coach.coach(r) }, modes: { data: "mock", voice: "mock", ai: "mock" } }).listen(0);
+    await new Promise((r) => srv.once("listening", r));
+    url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  });
+  afterAll(() => srv.close());
+
+  it("uses Gemini's reading and wording, within the rules", async () => {
+    coachMode = "good";
+    const r = await post();
+    expect(r.status).toBe(200);
+    expect(BargainResponse.parse(r.body)).toMatchObject({ move: "counter", myOffer: 190000, theirNumber: 300000, theirReplyEnglish: "Three hundred thousand", advice: "Hold your ground, kindly.", final: false });
+    expect(r.body.phrase).toMatchObject({ local: "Bagaimana 190 ribu saja?", lang: "id-ID" });
+  });
+  it("a greedy or tricked AI cannot break the rules", async () => {
+    coachMode = "greedy";
+    const r = await post({ myLastOffer: 170000 });
+    expect(r.body.move).toBe("counter"); // not "accept"
+    expect(r.body.myOffer).toBeGreaterThanOrEqual(170000); // never down, even though the AI said 20,000
+    expect(r.body.phrase.local).toContain(String(r.body.myOffer / 1000)); // words match the number
+  });
+  it("if Gemini fails, the rules still answer: halfway, capped, with a Bahasa phrase", async () => {
+    coachMode = "down";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const r = await post({ myLastOffer: 170000, theirNumber: 260000 });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ move: "counter", myOffer: 215000 });
+    expect(r.body.phrase.local).toContain("215 ribu");
+    expect(warn.mock.calls[0][0]).toBe("[bargain] gemini failed: gemini bargain 429");
+    vi.restoreAllMocks();
+  });
+  it("the seller answered by voice: 'unclear' means try again, with no new round and no change", async () => {
+    coachMode = "unclear";
+    const r = await post({ theirNumber: undefined, theirReply: "mmm... krrr", round: 2, myLastOffer: 170000 });
+    expect(r.status).toBe(200);
+    expect(BargainResponse.parse(r.body)).toMatchObject({ move: "retry", intent: "unclear", final: false, round: 2, advice: "Didn't catch that, let them try again." });
+    expect(r.body.myOffer).toBeUndefined();
+  });
+  it("'agreed' by voice is a deal at my last offer", async () => {
+    coachMode = "agreed";
+    expect((await post({ theirNumber: undefined, theirReply: "oke boleh", myLastOffer: 170000 })).body).toMatchObject({ move: "accept", dealPrice: 170000, intent: "agreed", theirReplyEnglish: "Okay, deal." });
+  });
+  it("junk from Gemini never reaches the page: templates are used", async () => {
+    coachMode = "junk";
+    const r = await post({ myLastOffer: 170000, theirNumber: undefined, theirReply: "tiga ratus ribu" });
+    expect(r.body).toMatchObject({ move: "counter", theirNumber: 300000, myOffer: 190000, advice: "Stay friendly and hold at Rp190,000.", phrase: { local: "Bagaimana kalau 190 ribu saja?" } });
+    expect(r.body.theirReplyEnglish).toBeUndefined();
+    expect(JSON.stringify(r.body)).not.toMatch(/placeholder|\u5047|_to_ensure/);
+  });
+  it("round 3 above the limit: walk away, and a deal below the target is accepted", async () => {
+    coachMode = "good";
+    expect((await post({ round: 3, myLastOffer: 230000 })).body).toMatchObject({ move: "walk_away", final: true, alternative: expect.stringContaining("Grab") });
+    expect((await post({ theirNumber: 190000, theirReply: "190 ribu" })).body).toMatchObject({ move: "accept", dealPrice: 190000, final: true });
+  });
+  it("ask places: one reply round and no counter-offers", async () => {
+    coachMode = "good";
+    expect((await post({ bargainMode: "ask", theirNumber: 300000 })).body.move).toBe("walk_away");
+    expect((await post({ bargainMode: "ask", theirNumber: 230000 })).body.move).toBe("accept");
+  });
+  it("never in a fixed-price place, and it needs something to react to", async () => {
+    const fixed = await post({ bargainMode: "fixed" });
+    expect(fixed.status).toBe(400);
+    expect(fixed.body.error).toContain("fixed-price");
+    const empty = await post({ theirReply: undefined, theirNumber: undefined });
+    expect(empty.status).toBe(400);
   });
 });
