@@ -1,0 +1,12 @@
+{
+  "name": "local-ish",
+  "short_name": "local-ish",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EBF9CB",
+  "theme_color": "#EBF9CB",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
