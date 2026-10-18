@@ -3,7 +3,7 @@
  * Each role builds ONE class that implements its port. The API only talks to these
  * interfaces, so swapping mock -> real never breaks anyone else's code.
  */
-import type { AdviceDraft, BargainDraft, BargainRequest, CheckResult, Expense, NewExpense, ParsedAsk, ParseRequest, PriceItem, Trip } from "@fairfare/shared";
+import type { AdviceDraft, BargainDraft, BargainRequest, BudgetNote, BudgetStatus, CheckResult, Expense, NewExpense, ParsedAsk, ParseRequest, PriceItem, Trip } from "@fairfare/shared";
 
 
 /** DATA role (Tiger Data / PostgreSQL) */
@@ -68,4 +68,12 @@ export interface PriceLearner {
 /** AI role (Gemini): reads and translates the seller's reply and suggests a next offer. The code in packages/shared decides the final move. */
 export interface BargainCoach {
   coach(req: BargainRequest): Promise<BargainDraft>;
+}
+
+/** What Gemini may be told about a budget check: the finished facts, nothing else. */
+export type BudgetFacts = { city: string; status: BudgetStatus; currency: string; days: number; style: string; perDay: number; typicalPerDay: number; shortfall: number };
+
+/** AI role (Gemini): words one sentence and one tip around a budget check that code already worked out. It never sees or changes the numbers' meaning. */
+export interface BudgetExplainer {
+  explain(facts: BudgetFacts): Promise<Partial<BudgetNote>>;
 }

@@ -250,6 +250,34 @@ export const BargainResponse = z.object({
 });
 export type BargainResponse = z.infer<typeof BargainResponse>;
 
+/* ---------- budget check (POST /api/budget-check) ---------- */
+/** Is this budget enough for a normal day in the city? Added later; nothing above changed. */
+export const BudgetStatus = z.enum(["enough", "tight", "notEnough"]);
+export type BudgetStatus = z.infer<typeof BudgetStatus>;
+
+export const BudgetCheckRequest = z.object({
+  city: z.string(),
+  budget: z.number().positive(), // ONE person's whole-trip budget, in the city's local currency
+  currency: z.string(), // must be the city's local currency (e.g. "IDR")
+  startDate: z.string(), // YYYY-MM-DD
+  endDate: z.string(),
+  style: Style.default("local"),
+});
+export type BudgetCheckRequest = z.infer<typeof BudgetCheckRequest>;
+
+/** The numbers come from code (budgetCheck). summary and tip are Gemini's words, or a template if Gemini fails. */
+export const BudgetCheckResult = z.object({
+  status: BudgetStatus,
+  perDay: z.number(), // budget ÷ days, local currency
+  typicalPerDay: z.number(), // a normal day in this city, local currency
+  shortfall: z.number(), // per day, 0 when the budget is enough
+  currency: z.string().optional(),
+  days: z.number().optional(),
+  summary: z.string(), // one sentence, no numbers
+  tip: z.string(), // one practical tip, no numbers
+});
+export type BudgetCheckResult = z.infer<typeof BudgetCheckResult>;
+
 /* ---------- invites ---------- */
 /** What the join screen shows before someone has joined: GET /api/trips/by-code/:code */
 export const TripByCode = z.object({

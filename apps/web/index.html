@@ -174,10 +174,10 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .status.ok{background:var(--lime);color:#0A0A0A}
 .when{align-self:flex-start;font-weight:700;font-size:14px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-variant-numeric:tabular-nums}
 /* money tiles */
-.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.ess summary::-webkit-details-marker{display:none}
-.ess .more-tag{font-size:13px;font-weight:700;color:var(--primary)}
-.ess[open] .more-tag{display:none}
+/* Local essentials: always open, title is the same small .eyebrow label as "MY MONEY" */
+.ess .tips b{display:block;font-size:15px;line-height:1.25}
+.ess .tips p{margin:2px 0 0;font-size:13px;line-height:1.35}
+.ess .dot svg{width:18px;height:18px}
 .money{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .money.solo{grid-template-columns:1fr}
 .tile{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px;text-align:left;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -315,6 +315,13 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .say .phrase,.turn .phrase{font-family:var(--display);font-weight:700;font-size:20px}
 .say .row button{flex:1 1 120px}
 
+/* budget check: lime = enough, amber = tight, red = not enough (never green) */
+.bnote{border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.4;border:1.5px solid var(--lime);background:color-mix(in srgb,var(--lime) 30%,var(--surface));color:var(--fg)}
+.bnote:empty{display:none}
+.bnote.tight{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.bnote.notEnough{border-color:var(--bad);background:var(--bad-bg);color:var(--bad)}
+.bnote p{margin:0}.bnote p+p{margin-top:4px}
+
 /* budget */
 .pie-wrap{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center}
 .pie{width:120px;height:120px;border-radius:50%;position:relative}
@@ -417,6 +424,7 @@ const PRICES=[
 const S={
   step:1, open:null, errors:{},
   user:{name:'',email:'',age:'',country:'',home:'GBP'},
+  bc:null, // last budget check, for the onboarding note
   trip:{dest:0,budget:'',touched:false,start:'2026-10-24',end:'2026-10-30',mode:'group',friends:[],newFriend:''}, // starts blank: no budget, no friends
   session:null, tripData:null, summary:null, expenses:[], extra:{}, join:null, loadErr:'', inviteEmail:'', // session + trip come from the API
   check:{style:'local',text:'',step:null,err:'',cat:'transport',input:'text',itemId:'taxi-airport',amount:250,result:null,paid:null,paidAmt:0,paidCat:'transport',paidBy:null,saving:false,bg:null,bgInput:'',split:{mode:'equal',on:{},custom:{}},listening:false,transcript:'',photo:null,photoRead:false}
@@ -477,6 +485,26 @@ const nameOf=id=>{const p=T()&&T().people.find(x=>x.id===id);return p?p.name:'So
 const groupBudgetLoc=()=>(Number(S.trip.budget)||0)*RATES[home()];
 const perPersonHome=()=>(Number(S.trip.budget)||0)/members();
 const budgetLoc=()=>groupBudgetLoc()/members(); // my share of the budget, in rupiah
+// ----- budget check (onboarding): a small note under the dates. It never blocks "Start my trip". -----
+let bcT=0,bcSeq=0;
+const bcKey=()=>[Math.round(budgetLoc()),S.trip.start,S.trip.end].join('|'); // what the note on screen was worked out for
+const bcReady=()=>dest().ok&&budgetLoc()>0&&!!S.trip.start&&!!S.trip.end&&S.trip.end>=S.trip.start; // ISO dates compare as text
+function bcNote(){
+  const r=S.bc;if(!r||!bcReady())return'';
+  const k=n=>Math.round(n/1000)*1000, x=k(r.perDay), y=k(r.typicalPerDay);
+  const nums=`About ${loc(x)}/day. A normal day in Bali is about ${loc(y)}.`;
+  if(r.status==='enough')return`<div class="bnote enough"><p>${esc(r.summary)}</p></div>`;
+  const short=r.status==='notEnough'?` You're about ${loc(Math.max(0,y-x))} short.`:''; // y - x so the three numbers always add up
+  return`<div class="bnote ${r.status}"><p>${nums}${short}</p><p>${esc(r.tip)}</p></div>`}
+function bcPaint(){const el=$('#bc-note');if(el)el.innerHTML=bcNote()}
+// waits 500ms after the last change, asks the API, and ignores any answer that has since been replaced
+function bcSchedule(){
+  clearTimeout(bcT);const seq=++bcSeq,key=bcKey();
+  if(!bcReady()){S.bc=null;bcPaint();return}
+  bcT=setTimeout(async()=>{
+    try{const r=await window.fairfareApi.budgetCheck({city:'bali',budget:Math.round(budgetLoc()),currency:'IDR',startDate:S.trip.start,endDate:S.trip.end,style:'local'});if(seq===bcSeq)S.bc=r}
+    catch(e){if(seq===bcSeq)S.bc=null} // no note is better than a wrong or scary one
+    if(seq===bcSeq){S.bcKey=key;bcPaint()}},500)}
 function days(){const a=new Date(S.trip.start),b=new Date(S.trip.end);const d=Math.round((b-a)/864e5)+1;return isFinite(d)&&d>0?d:1}
 const daily=()=>budgetLoc()/days();
 function dateRange(){try{const o={day:'numeric',month:'short'};const a=new Date(S.trip.start).toLocaleDateString('en-GB',o),b=new Date(S.trip.end).toLocaleDateString('en-GB',o);return a+' – '+b}catch(e){return''}}
@@ -565,6 +593,7 @@ function onb(){
       <label class="field">Leaving<input id="f-start" type="date" data-bind="trip.start" value="${S.trip.start}"></label>
       <label class="field">Coming back<input id="f-end" type="date" data-bind="trip.end" value="${S.trip.end}"></label>
     </div>
+    <div id="bc-note" aria-live="polite">${bcNote()}</div>
     ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
     <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" id="onb-next" data-action="next" ${onb3Ok()&&!S.starting?'':'disabled'}>${S.starting?'Starting…':'Start my trip'}</button></div>`;}
   return `<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">Step ${s} of 3</span></div>
@@ -615,14 +644,14 @@ function homeView(){
   </section>
   ${budgetFrames()}
   ${inviteCard()}
-  <details class="card ess">
-    <summary><h2>Local essentials</h2><span class="more-tag">Tap to open</span></summary>
+  <section class="card ess" aria-labelledby="h-ess">
+    <p class="eyebrow" id="h-ess">Local essentials</p>
     <ul class="tips">
-      <li><span class="dot">SIM</span><div><b>Get a local SIM at the airport</b><p class="muted">Official shops only. About Rp100,000–200,000 with data.</p></div></li>
-      <li><span class="dot">Taxi</span><div><b>Use Grab or Gojek</b><p class="muted">Or agree the fare first and ask for the meter (argo).</p></div></li>
-      <li><span class="dot">Tip</span><div><b>Tipping is a thank-you</b><p class="muted">Many places add 10% service. Rp10,000 is welcome for drivers and guides.</p></div></li>
+      <li><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg></span><div><b>Get a local SIM</b><p class="muted">Official shops, about Rp100k–200k.</p></div></li>
+      <li><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16l1.5-5h11L19 16M5 16h14v3H5zM8 19v1M16 19v1M9 8l1-3h4l1 3"/></svg></span><div><b>Use Grab or Gojek</b><p class="muted">Or agree the fare first and ask for the meter.</p></div></li>
+      <li><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5C9.5 8.5 11 8 12 8s2.5.5 2.5 1.7c0 2.3-5 1.4-5 3.8 0 1.2 1.5 1.7 2.5 1.7s2.5-.5 2.5-1.5"/></svg></span><div><b>Tipping is a thank-you</b><p class="muted">Many places add 10% service already.</p></div></li>
     </ul>
-  </details>`;
+  </section>`;
 }
 
 const SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
@@ -845,6 +874,7 @@ function render(scroll){
     if(sc==='new'){const y=chat.querySelector('.first-said');chat.scrollTop=y?y.offsetTop-chat.offsetTop:0}
     else if(sc==='end')chat.scrollTop=chat.scrollHeight;
     else chat.scrollTop=keep}
+  if(S.step===3&&bcReady()&&S.bcKey!==bcKey())bcSchedule(); // asks again after a country or friends change redrew the page
   if(scroll) window.scrollTo(0,0);
 }
 const smooth=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
@@ -1163,6 +1193,7 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return
   if(t.id==='bg-in')syncBgSend();
   if(t.dataset.bind==='user.country'){S.user.home=cty().cur} // flag + currency follow the country
   if(t.id==='f-budget')S.trip.touched=true;
+  if(S.step===3&&(t.id==='f-budget'||t.id==='f-start'||t.id==='f-end'))bcSchedule();
   if(t.tagName==='SELECT'){ if(t.dataset.bind==='check.itemId') S.check.result=null; render() }
   else if(t.classList.contains('amt-in')){const sp=S.check.split,ps=people(),tot=ps.reduce((x,p)=>x+(sp.on[p.key]?Number(sp.custom[p.key])||0:0),0);const h=$('#s-left');if(h)h.textContent=splitLeft(Number(S.check.paidAmt)||0,tot)}
   else if(t.id==='c-amt'){const h=$('#c-amt-home');if(h)h.textContent='≈ '+fmtHome((Number(v)||0)/RATES[home()])}

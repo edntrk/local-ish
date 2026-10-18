@@ -105,6 +105,16 @@ If research fails for any reason (quota, search, bad answer), `/api/parse` answe
 
 Additive fields: `PriceItem.origin` (`"seed"` or `"web"`), `ParsedAsk.item`, `ParsedAsk.researched`, `ParsedAsk.sources`, `CheckResult.source` (`"local"` or `"web"`) and `CheckResult.sources`. `DataStore.addPriceItem(item)` and the optional `DataStore.init()` (adds columns on server start) are new.
 
+## Budget check
+
+`POST /api/budget-check` `{ city, budget, currency, startDate, endDate, style }` → `{ status, perDay, typicalPerDay, shortfall, days, currency, summary, tip }`.
+
+- `budget` is ONE person's whole-trip budget in the city's local currency (IDR for Bali); another currency is a `400`.
+- Code decides every number (`typicalPerDay` and `budgetCheck` in `packages/shared/src/budget.ts`). A normal day = 3 × nasi goreng + 2 × city rides + 1 night's stay + 2 × water, the middle of each range × the style multiplier; an item the city doesn't have is skipped.
+- `perDay` = budget ÷ days (both end days count). At 100% of a normal day or more: `enough`. 70% up to 100%: `tight`. Under 70%: `notEnough`. `shortfall` is per day.
+- Gemini only gets the status and the setting (never an amount) and writes `summary` and `tip`. Any sentence that contains a digit, or is not clean, is replaced by a template sentence, as is everything if Gemini fails.
+- The money card ("Rp X/day left for N days") uses no API call besides `GET /api/prices` and the same shared `typicalPerDay`.
+
 ## Changing the contract
 
 1. Open a pull request that edits `packages/shared/src/contracts.ts` **only**.

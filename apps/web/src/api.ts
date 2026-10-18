@@ -2,7 +2,7 @@
  * INTERFACE role: the ONLY place the app talks to the backend.
  * Every function is typed from the shared contract, so if the contract changes, TypeScript tells you what broke.
  */
-import type { BargainResponse, CheckRequest, CheckResult, Expense, Health, JoinResult, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip, TripByCode } from "@fairfare/shared";
+import type { BargainResponse, BudgetCheckRequest, BudgetCheckResult, CheckRequest, CheckResult, Expense, Health, JoinResult, NewExpense, ParsedAsk, ParseRequest, PriceItem, Summary, Trip, TripByCode } from "@fairfare/shared";
 
 /** what the page sends for one bargaining step (currency and language have defaults on the server) */
 export type BargainReq = Omit<import("@fairfare/shared").BargainRequest, "currency" | "language"> & { currency?: string; language?: string };
@@ -36,6 +36,9 @@ export const api = {
   tripByCode: (code: string) => req<TripByCode>(`/trips/by-code/${encodeURIComponent(code)}`),
   /** joins by invite code; `personId` is who you became (a new person, or the invited person you claimed) */
   joinTrip: (code: string, name: string, email?: string) => post<JoinResult>("/trips/join", { code, name, email }),
+
+  /** is this budget enough for a normal day? numbers from code, one sentence and one tip from Gemini (or a template) */
+  budgetCheck: (r: Omit<BudgetCheckRequest, "style"> & { style?: BudgetCheckRequest["style"] }) => post<BudgetCheckResult>("/budget-check", r),
 
   parse: (r: ParseRequest) => post<ParsedAsk>("/parse", r),
   check: (r: CheckRequest) => post<CheckResult>("/check", r),

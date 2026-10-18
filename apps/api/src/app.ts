@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { ZodError, z } from "zod";
-import { BargainRequest, CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, budgetLocal, checkPrice, cheaperAlternative, decideBargain, summarise } from "@fairfare/shared";
-import type { AdviceWriter, AskParser, BargainCoach, DataStore, PriceLearner, VoiceService } from "./ports";
+import { BargainRequest, BudgetCheckRequest, CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, applyBudgetNote, budgetCheck, budgetLocal, budgetResult, checkPrice, cheaperAlternative, decideBargain, summarise, typicalPerDay } from "@fairfare/shared";
+import type { AdviceWriter, AskParser, BargainCoach, BudgetExplainer, DataStore, PriceLearner, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
 import { UnknownItemError } from "./ai/gemini";
 import { isStale } from "./ai/learn";
 
-export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; coach?: BargainCoach; modes: { data: string; voice: string; ai: string } };
+export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; coach?: BargainCoach; budgetExplainer?: BudgetExplainer; modes: { data: string; voice: string; ai: string } };
 
 const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new one.";
 
@@ -16,7 +16,7 @@ const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new o
 const h = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
   fn(req, res).catch(next);
 
-export function createApp({ data, voice, ai, advisor, learner, coach, modes }: Deps) {
+export function createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes }: Deps) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: "8mb" })); // photos arrive as base64
@@ -124,6 +124,24 @@ export function createApp({ data, voice, ai, advisor, learner, coach, modes }: D
       console.warn("[fallback] advice failed, using template:", (err as Error).message);
       res.json(result);
     }
+  }));
+
+  /* ----- budget check: code decides the numbers, Gemini only words them ----- */
+  app.post("/api/budget-check", h(async (req, res) => {
+    const body = BudgetCheckRequest.parse(req.body);
+    const prices = await data.listPrices(body.city);
+    const local = prices.find((p) => p.city === body.city)?.currency;
+    if (!local) return res.status(404).json({ error: "We don't have prices for that place yet." });
+    if (body.currency !== local) return res.status(400).json({ error: `Send the budget in ${local}, the money used in that place.` });
+    if (!(Date.parse(body.startDate) <= Date.parse(body.endDate))) return res.status(400).json({ error: "Your return date is before your leaving date." });
+    const numbers = budgetCheck({ budget: body.budget, startDate: body.startDate, endDate: body.endDate, typicalPerDay: typicalPerDay(body.city, body.style, prices) });
+    let draft;
+    try {
+      draft = await budgetExplainer?.explain({ city: body.city, status: numbers.status, currency: local, days: numbers.days, style: body.style, perDay: numbers.perDay, typicalPerDay: numbers.typicalPerDay, shortfall: numbers.shortfall });
+    } catch (err) {
+      console.warn("[fallback] budget words failed, using template:", (err as Error).message);
+    }
+    res.json(budgetResult(numbers, local, applyBudgetNote(draft, numbers.status))); // no draft or an unclean one = the template
   }));
 
   /* ----- bargaining back-and-forth ----- */

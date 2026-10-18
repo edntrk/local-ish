@@ -6,12 +6,12 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { BargainResponse, CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
+import { BargainResponse, BudgetCheckResult, CheckResult, Expense, Health, JoinResult, ParsedAsk, PriceItem, Summary, Trip, TripByCode, perPersonBudget } from "@fairfare/shared";
 import { createApp } from "./app";
 import { MockDataStore } from "./data/mock";
 import { MockVoice } from "./voice/mock";
 import { MockAskParser } from "./ai/mock";
-import type { AdviceWriter } from "./ports";
+import type { AdviceWriter, BudgetExplainer } from "./ports";
 import type { AskParser, BargainCoach, PriceResearcher } from "./ports";
 import { UnknownItemError } from "./ai/gemini";
 import { createPriceLearner } from "./ai/learn";
@@ -19,13 +19,14 @@ import { createPriceLearner } from "./ai/learn";
 let server: Server;
 let base = "";
 let advisor: AdviceWriter | undefined;
+let explainer: BudgetExplainer | undefined;
 const call = async (path: string, init?: RequestInit) => {
   const res = await fetch(base + path, { headers: { "content-type": "application/json" }, ...init });
   return { status: res.status, body: res.status === 204 ? null : await res.json().catch(() => null), headers: res.headers };
 };
 
 beforeAll(async () => {
-  const app = createApp({ data: new MockDataStore(), voice: new MockVoice(), ai: new MockAskParser(), advisor: { advise: (...a) => advisor!.advise(...a) }, modes: { data: "mock", voice: "mock", ai: "mock" } });
+  const app = createApp({ data: new MockDataStore(), voice: new MockVoice(), ai: new MockAskParser(), advisor: { advise: (...a) => advisor!.advise(...a) }, budgetExplainer: { explain: async (f) => (explainer ? explainer.explain(f) : {}) }, modes: { data: "mock", voice: "mock", ai: "mock" } });
   server = app.listen(0);
   await new Promise((r) => server.once("listening", r));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -428,5 +429,39 @@ describe("POST /api/bargain", () => {
     expect(fixed.body.error).toContain("fixed-price");
     const empty = await post({ theirReply: undefined, theirNumber: undefined });
     expect(empty.status).toBe(400);
+  });
+});
+
+describe("POST /api/budget-check", () => {
+  const ask = (over: object = {}) => call("/api/budget-check", { method: "POST", body: JSON.stringify({ city: "bali", budget: 700000, currency: "IDR", startDate: "2026-10-24", endDate: "2026-10-30", style: "local", ...over }) });
+  afterAll(() => { explainer = undefined; });
+
+  it("the numbers come from code; Gemini's clean words are used", async () => {
+    explainer = { explain: async () => ({ summary: "That is tight but doable.", tip: "Eat at warungs." }) };
+    const r = await ask();
+    expect(r.status).toBe(200);
+    const out = BudgetCheckResult.parse(r.body);
+    // 700,000 over 7 days = 100,000 a day against a normal day of about 200,500: under 70%
+    expect(out).toMatchObject({ status: "notEnough", perDay: 100000, typicalPerDay: 200500, shortfall: 100500, days: 7, summary: "That is tight but doable.", tip: "Eat at warungs." });
+  });
+  it("Gemini can't change a number or sneak one into its words", async () => {
+    explainer = { explain: async () => ({ summary: "You have 999,999 a day.", tip: "Grab costs 5k." }) };
+    const out = BudgetCheckResult.parse((await ask({ budget: 2800000 })).body);
+    expect(out.status).toBe("enough");
+    expect(out.perDay).toBe(400000);
+    expect(JSON.stringify([out.summary, out.tip])).not.toMatch(/\d/);
+  });
+  it("uses the template when Gemini fails", async () => {
+    explainer = { explain: async () => { throw new Error("quota"); } };
+    const r = await ask({ budget: 1200000 });
+    expect(r.status).toBe(200);
+    expect(BudgetCheckResult.parse(r.body)).toMatchObject({ status: "tight", summary: expect.any(String), tip: expect.stringContaining("Grab") });
+  });
+  it("answers with plain sentences for a wrong currency, wrong dates or an unknown city", async () => {
+    explainer = undefined;
+    expect((await ask({ currency: "GBP" })).body.error).toContain("IDR");
+    expect((await ask({ startDate: "2026-10-30", endDate: "2026-10-24" })).body.error).toContain("return date");
+    expect((await ask({ city: "atlantis" })).status).toBe(404);
+    expect((await ask({ budget: 0 })).status).toBe(400);
   });
 });
