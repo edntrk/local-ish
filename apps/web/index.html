@@ -164,12 +164,19 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .fx-pick select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
 .fx-amt{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;flex:1;min-width:0;font-family:var(--display);font-weight:700}
 .fx-sym{font-family:var(--body);font-size:26px;font-weight:700;white-space:nowrap}
-.fx-amt input,.fx-amt output{background:transparent;border:0;color:inherit;font:inherit;font-size:36px;text-align:right;width:100%;min-width:0;max-width:100%;outline:none;padding:0;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
+.fx-amt input,.fx-amt output{background:transparent;border:0;color:inherit;font:inherit;font-size:36px;text-align:right;flex:1 1 0;width:0;min-width:0;max-width:100%;outline:none;padding:0;-moz-appearance:textfield;font-variant-numeric:tabular-nums}
 .fx-amt input::-webkit-inner-spin-button,.fx-amt input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .fx-amt input:focus-visible{outline:none}
 .fx-amt:focus-within{box-shadow:0 2px 0 var(--lime)}
 .fx-amt output{display:block}
-.fx-cards.sm .fx-amt input,.fx-cards.sm .fx-amt output{font-size:26px} /* both amounts shrink together so the two currencies always match */
+/* both amounts shrink together so the two currencies always match; the longer the number, the smaller, and the country name gives up room */
+.fx-cards.sm .fx-amt input,.fx-cards.sm .fx-amt output{font-size:21px}
+.fx-cards.sm .fx-pick{max-width:42%}.fx-cards.sm .fx-sym{font-size:18px}
+.fx-cards.xs .fx-amt input,.fx-cards.xs .fx-amt output{font-size:19px}
+.fx-cards.xs .fx-pick{max-width:36%}.fx-cards.xs .fx-sym{font-size:15px}
+.fx-cards.xxs .fx-amt input,.fx-cards.xxs .fx-amt output{font-size:15px}
+.fx-cards.xxs .fx-pick{max-width:32%}.fx-cards.xxs .fx-sym{font-size:13px}
+.fx-cards.xxs .fx-pick b{font-size:15px}
 .fx-sub{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink-muted)}
 .fx-swap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:#fff;color:#0E0E0E;display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
 .fx-swap svg{width:22px;height:22px}
@@ -478,12 +485,12 @@ function syncOnb(){
   if(S.step===6){const b=$('#j-go');if(b)b.disabled=S.join.busy||!S.join.name.trim()}
   if(S.step===3){const bi=$('#f-budget');if(bi)bi.style.width=(bi.value.length+.5)+'ch'; // hugs the digits so the currency sign stays next to them
     const o=$('#fx-out');if(o)o.textContent=fmtNum(destAmt(),dest().cur);
-    const fc=$('.fx-cards');if(fc)fc.classList.toggle('sm',fxSmall())
+    const fc=$('.fx-cards');if(fc)fc.className='fx-cards '+fxSize()
     const d=$('#fx-day');if(d)d.textContent='≈ '+fmtNum(destAmt()/days(),dest().cur)+' '+dest().cur+' a day'
     const e=$('#fx-each');if(e)e.textContent=eachTxt();
     const n=$('#onb-next');if(n)n.disabled=!onb3Ok()}}
 // the home and destination amounts always share one size: both shrink when either gets long
-const fxSmall=()=>Math.max(String(Number(S.trip.budget)||0).length,fmtNum(destAmt(),dest().cur).length)>9;
+const fxSize=()=>{const n=Math.max(fmtNum(Number(S.trip.budget)||0,home()).length,fmtNum(destAmt(),dest().cur).length);return n>=13?'xxs':n>=10?'xs':n>=8?'sm':''};
 const budgetLabel=()=>isGroup()?'Total trip budget for your group':'Your trip budget';
 const eachTxt=()=>`≈ ${symTxt(home())}${fmtNum(perPersonHome(),home())} each for ${members()} people`;
 const loc=n=>'Rp'+Math.round(n).toLocaleString('en-GB');
@@ -584,7 +591,7 @@ function onb(){
     <div><h1>Where are you going?</h1><p class="muted" style="margin-top:6px">Pick a country and we'll show your budget in local money.</p></div>
     <div class="fx">
       <p class="fx-rate">${TREND}<span id="fx-rate">${rateLine()}</span></p>
-      <div class="fx-cards ${fxSmall()?'sm':''}">
+      <div class="fx-cards ${fxSize()}">
         <div class="fx-card from">
           <div class="fx-row">
             ${fxPick(c.flag,c.name,'user.country','Your home country',COUNTRIES.map(x=>`<option value="${x.code}" ${x.code===c.code?'selected':''}>${x.name}</option>`).join(''))}
