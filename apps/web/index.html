@@ -125,7 +125,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .stats dd{margin:2px 0 0;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
 .tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .tips li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
-.tips .dot{width:34px;height:34px;border-radius:12px;background:var(--lime);color:#0A0A0A;display:grid;place-items:center;font-weight:800;font-size:13px}
+.tips .dot{width:34px;height:34px;border-radius:12px;background:var(--lime);color:#0A0A0A;display:grid;place-items:center;font-weight:800;color:var(--fg);font-size:13px}
 .link{background:none;border:0;color:var(--primary);font-weight:700;padding:0}
 
 /* onboarding: country picker. The real <select> sits on top so the phone's own list still opens */
@@ -174,7 +174,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .status.ok{background:var(--lime);color:#0A0A0A}
 .when{align-self:flex-start;font-weight:700;font-size:14px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-variant-numeric:tabular-nums}
 /* money tiles */
-.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;pointer-events:none} /* always open */
+.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
 .ess summary::-webkit-details-marker{display:none}
 .ess .more-tag{font-size:13px;font-weight:700;color:var(--primary)}
 .ess[open] .more-tag{display:none}
@@ -185,8 +185,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .tile .bar{display:block}
 .tile .val{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
 .t-cur{font-family:var(--display);font-weight:800;font-size:16px;color:var(--muted);margin-top:2px}
-.t-amt{font-family:var(--display);font-weight:800;font-size:clamp(18px,5.6vw,26px);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:-6px;white-space:nowrap}
-.money.solo .t-amt{font-size:clamp(26px,8vw,34px)}
+.t-amt{font-family:var(--display);font-weight:800;font-size:clamp(22px,7vw,30px);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:-6px;overflow-wrap:anywhere}
 .t-gbp{font-size:15px;font-weight:500}
 .t-panel{display:flex;flex-direction:column;gap:2px;background:var(--surface-2);border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px;margin-top:4px}
 .t-panel small{font-size:12px;font-weight:500;color:var(--muted)}
@@ -266,20 +265,17 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .drop img{max-height:140px;border-radius:10px}
 .demo{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:8px 10px}
 
-.verdict{border-radius:16px;padding:10px 14px 12px;display:flex;flex-direction:column;gap:2px;width:84%;align-self:center}
-.verdict .big{font-size:24px}
-.verdict .tip{margin-top:4px}
-.note{align-self:flex-start;font-size:13px}
+.verdict{border-radius:16px;padding:14px 16px 16px;display:flex;flex-direction:column;gap:4px;width:92%;align-self:center}
 .v-great{background:color-mix(in srgb,var(--c3) 16%,var(--surface))} .v-fair{background:color-mix(in srgb,var(--blue-grey) 16%,var(--surface))}
 .v-high{background:var(--warn-bg)} .v-tooHigh{background:var(--bad-bg)} .v-unknown{background:var(--surface-2)}
 .pill{align-self:flex-end;font-weight:800;font-size:13px;padding:4px 11px;border-radius:999px;color:var(--surface)}
 .v-great .pill{background:var(--c3)} .v-fair .pill{background:var(--blue-grey)} .v-high .pill{background:var(--warn)} .v-tooHigh .pill{background:var(--bad)} .v-unknown .pill{background:var(--c7)}
-.verdict .vcur{font-family:var(--display);font-weight:800;font-size:12px;margin-top:-8px}
+.verdict .vcur{font-family:var(--display);font-weight:800;font-size:13px;margin-top:-10px}
 .verdict .gbp{font-weight:600}
 .verdict .vline{font-size:13px;color:var(--muted);font-weight:500}
 .verdict .src{margin-top:2px}
-.vbtns{display:flex;gap:6px;margin-top:8px}
-.vbtns .btn{flex:1;padding:7px 6px;font-size:13px;background:var(--primary);color:var(--on-primary)}
+.vbtns{display:flex;gap:8px;margin-top:10px}
+.vbtns .btn{flex:1;padding:10px 8px;font-size:14px;background:var(--primary);color:var(--on-primary)}
 .range{position:relative;height:12px;border-radius:99px;background:var(--surface);margin:10px 0 8px}
 .range .ok{position:absolute;top:0;bottom:0;background:var(--good);opacity:.35;border-radius:99px}
 .range .you{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:3px;transform:translateX(-50%)}
@@ -289,15 +285,16 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .src .status{margin:0 4px 0 0}
 .bargain-chat{display:flex;flex-direction:column;gap:10px}
 .rounds{display:flex;flex-direction:column;gap:8px}
-.turn{max-width:84%;padding:10px 12px;border:1.5px solid transparent;border-radius:16px;display:flex;flex-direction:column;gap:4px} /* one bubble for both sides; only colour and side differ */
-.turn p{margin:0;font-size:15px;font-weight:700;line-height:1.35}
-.turn small{font-size:13px;font-weight:500;color:var(--muted)}
-.turn.me{align-self:flex-end;background:var(--bubble-me);border-color:var(--bubble-me)}
-.turn.them{align-self:flex-start;background:var(--surface);border-color:var(--line)}
-.turn.me small{color:color-mix(in srgb,var(--fg) 65%,transparent)}
+.turn{max-width:88%;padding:8px 12px;font-weight:500;display:flex;flex-direction:column;gap:4px}
+.turn p{margin:0}
+.turn small{color:var(--muted);font-weight:500}
+.turn.me{align-self:flex-end;background:var(--bubble-me);border-radius:16px 16px 4px 16px}
+.turn.them{align-self:flex-start;background:var(--surface);border:1.5px solid var(--line);border-radius:16px 16px 16px 4px}
+.turn.me small,.turn.me .demo{color:color-mix(in srgb,var(--fg) 65%,transparent)}
 .turn .plays{display:flex;gap:6px;flex-wrap:wrap}
 .bargain-chat .eyebrow,.bargain-chat .hint,.bargain-chat .link{align-self:center;text-align:center}
-.chat .walk{width:84%;align-self:center;padding:10px 14px}
+.bargain-chat .deal,.bargain-chat .walk{width:92%;align-self:center}
+.turn.me .demo{background:transparent;padding:0}
 .big-mic{min-height:64px;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn.on{animation:pulse 1s ease-in-out infinite}
 @media (prefers-reduced-motion: reduce){.btn.on{animation:none}}
@@ -315,7 +312,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .plan small{font-size:11px;font-weight:600;color:var(--muted)}
 .plan b{font-family:var(--display);font-size:18px}
 .say{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
-.say .phrase{font-family:var(--display);font-weight:700;font-size:20px}
+.say .phrase,.turn .phrase{font-family:var(--display);font-weight:700;font-size:20px}
 .say .row button{flex:1 1 120px}
 
 /* budget */
@@ -325,7 +322,6 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
 .legend li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center}
 .legend i{width:10px;height:10px;border-radius:3px}
-.legend .zero{color:var(--muted)}
 .cat-amt{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
 .cat-amt small{font-size:12px;color:var(--muted)}
 .list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
@@ -362,7 +358,6 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 .hello b{font-family:var(--display);font-weight:800}
 /* skip link + debug page switcher */
 .skip{align-self:center;text-decoration:underline;text-underline-offset:3px}
-#dbg[hidden]{display:none}
 #dbg{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;display:flex;align-items:center;gap:4px;background:var(--ink);color:var(--ink-fg);border:1px solid var(--ink-line);border-radius:999px;padding:4px;font-size:12px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 #theme{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--fg);background:var(--surface);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 #theme svg{width:22px;height:22px}
@@ -620,8 +615,8 @@ function homeView(){
   </section>
   ${budgetFrames()}
   ${inviteCard()}
-  <details class="card ess" open>
-    <summary><span class="eyebrow">Local essentials</span></summary>
+  <details class="card ess">
+    <summary><h2>Local essentials</h2><span class="more-tag">Tap to open</span></summary>
     <ul class="tips">
       <li><span class="dot">SIM</span><div><b>Get a local SIM at the airport</b><p class="muted">Official shops only. About Rp100,000–200,000 with data.</p></div></li>
       <li><span class="dot">Taxi</span><div><b>Use Grab or Gojek</b><p class="muted">Or agree the fare first and ask for the meter (argo).</p></div></li>
@@ -642,15 +637,11 @@ const PHOTO_ENABLED=false; // photo checks are paused: flip to true to bring the
 
 function checkBody(){
   const c=S.check;
-  // while bargaining, the bottom box is where the seller's answer goes (typed or spoken); otherwise it is the price check box
-  // once a price card is on screen, whatever is typed or spoken here is the seller's answer, never a new check (Pay or Leave it ends the chat)
-  const sell=!!(c.result&&item(c.result.itemId)&&c.step!=='pay'&&calc(c.result).mode!=='fixed'),who=sell?'seller':'check';
-  const val=sell?c.bgInput:c.text,off=c.hearing||c.busy||(sell&&c.bg&&c.bg.busy),on=c.listening&&micTarget===who;
   const bar=`<div class="askbar">
       ${PHOTO_ENABLED?`<label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>`:''}
-      <input id="${sell?'bg-in':'c-ask'}" data-bind="${sell?'check.bgInput':'check.text'}" value="${esc(val)}" placeholder="${on?'Listening…':c.hearing&&micTarget===who?'Processing…':c.busy?'Checking…':sell?'What did they say?':'e.g. taxi to Seminyak, 400000'}" aria-label="${sell?'What did they say?':'What are you paying for, and how much?'}" autocomplete="off" ${c.busy||(sell&&c.bg&&c.bg.busy)?'disabled':''}>
-      <button class="icon-btn ${on?'on':''}" data-action="listen" data-mic="${who}" aria-label="${on?'Stop recording':sell?'Let them answer':'Say it'}" aria-pressed="${on}" ${off&&!on?'disabled':''}>${ICON.voice}</button>
-      <button class="icon-btn send" id="${sell?'bg-send':'c-send'}" data-action="${sell?'bgSend':'send'}" aria-label="${sell?'Send what they said':'Check this price'}" ${val.trim()?'':'hidden'}>${SEND}</button>
+      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening&&micTarget==='check'?'Listening…':c.hearing?'Processing…':c.busy?'Checking…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off" ${c.busy?'disabled':''}>
+      <button class="icon-btn ${c.listening&&micTarget==='check'?'on':''}" data-action="listen" aria-label="${c.listening&&micTarget==='check'?'Stop recording':'Say it'}" aria-pressed="${c.listening&&micTarget==='check'}" ${c.hearing||c.busy?'disabled':''}>${ICON.voice}</button>
+      <button class="icon-btn send" id="c-send" data-action="send" aria-label="Check this price" ${c.text.trim()?'':'hidden'}>${SEND}</button>
     </div>
     ${PHOTO_ENABLED?'<input id="photoIn" type="file" accept="image/*" hidden>':''}`;
   const err=c.err?`<p class="err">${c.err}</p>`:'';
@@ -707,10 +698,9 @@ function verdictCard(v,a,line,extra,buttons){
 const vbtn=(label,attrs)=>`<button class="btn" ${attrs}>${label}</button>`;
 const payBtn=price=>vbtn('Pay',`data-action="choose" data-next="pay" data-price="${Math.round(price)}"`);
 const leaveBtn=()=>vbtn('Leave it','data-action="choose" data-next="leave"');
-// the seller's Play reads the ENGLISH line aloud, so I can hear what they said
-const sellerBubble=(text,english)=>{const en=english&&english!==text?english:'';return `<div class="turn them"><p>${esc(text)}</p>${en?`<small>${esc(en)}</small>`:''}<div class="plays">${playBtn(en||text,'en-GB','Play')}</div></div>`};
+const sellerBubble=(text,english)=>`<div class="turn them"><p>${esc(text)}</p>${english&&english!==text?`<small>${esc(english)}</small>`:''}</div>`;
 const playBtn=(text,lang,label)=>`<button class="btn btn-ghost play" data-action="speak" data-lang="${esc(lang||'id-ID')}" data-text="${esc(text)}">▶ ${label}</button>`;
-const meBubble=(local,english,lang)=>`<div class="turn me"><p>${esc(local)}</p><small>${esc(english)}</small><div class="plays">${playBtn(local,lang,'Play')}</div></div>`;
+const meBubble=(local,english,lang,polite)=>`<div class="turn me"><p class="phrase">${esc(local)}</p><small>${esc(english)}</small><div class="plays">${playBtn(local,lang,'Play')}${polite?playBtn(polite,lang,'Polite version'):''}</div></div>`;
 
 function unknownView(){
   const c=S.check,r=c.result,a=r.amount;
@@ -737,7 +727,7 @@ function resultView(){
     {card:1,html:b=>verdictCard(v,a,usual,extra,b),btns:()=>(bargainable||askOk?vbtn(mode==='ask'?'Ask':'Bargain','data-action="choose" data-next="bargain"'):'')+payBtn(a)+leaveBtn()}];
   if(bg&&bg.started){
     const first=mode==='ask'?askPh:ph;
-    items.push({html:()=>meBubble(first.local,first.english,first.lang||'id-ID')});
+    items.push({html:()=>meBubble(first.local,first.english,first.lang||'id-ID',mode==='ask'?'':ph.polite)});
     bg.turns.forEach(t=>{
       if(t.who==='you'){items.push({html:()=>meBubble(t.local,t.english,t.lang)});return}
       items.push({html:()=>sellerBubble(t.text,t.english)});
@@ -777,7 +767,7 @@ function pie(entries){
   if(!tot) return `<p class="muted">Nothing spent yet. Check a price and tap "Yes, I paid" to add one.</p>`;
   let acc=0; const stops=entries.filter(([,v])=>v>0).map(([k,v])=>{const s=acc/tot*360;acc+=v;return `${CATS[k].color} ${s}deg ${acc/tot*360}deg`}).join(',');
   return `<div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})" role="img" aria-label="Spending by category"></div>
-    <ul class="legend">${entries.map(([k,v])=>`<li class="${v>0?'':'zero'}"><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><span class="cat-amt"><b class="num">${v>0?loc(v):'–'}</b><small>${v>0?Math.round(v/tot*100)+'%':''}</small></span></li>`).join('')}</ul></div>`;
+    <ul class="legend">${entries.filter(([,v])=>v>0).map(([k,v])=>`<li><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><span class="cat-amt"><b class="num">${loc(v)}</b><small>${Math.round(v/tot*100)}%</small></span></li>`).join('')}</ul></div>`;
 }
 function budgetFrames(){
   const open=S.open, sm=S.summary, me=myId();
@@ -840,8 +830,7 @@ let welcomeT;
 // Debug switcher: remove this and the #dbg div when the prototype is done.
 // Pages 2+ need a home country, so fill the blanks with sample values when jumping past page 1.
 function ensureDefaults(){if(!cty()){S.user.country='GB';S.user.home='GBP'}}
-const DEBUG=/[?&]debug\b/.test(location.search); // the page-switcher bar only shows with ?debug in the address
-function dbg(){const d=$('#dbg');if(!DEBUG){d.hidden=true;return}d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
+function dbg(){const d=$('#dbg');d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
 function render(scroll){
   if(S.step>=2)ensureDefaults();
   if(FEATURES.invites&&S.step===2&&!S.inviteCode&&!S.inviteTried&&!T()){S.inviteTried=true;window.fairfareApi.reserveInviteCode().then(c=>{S.inviteCode=c.code;if(S.step===2)render()},()=>{S.inviteErr=true;if(S.step===2)render()})}
@@ -966,9 +955,7 @@ const bgOf=()=>S.check.bg||(S.check.bg={started:false,turns:[],myLast:calc(S.che
 // one step: send what they said to /api/bargain (the rules in packages/shared decide; if the API is down the same rules run here)
 async function bgStep(extra,themText){
   const c=S.check,bg=bgOf(),k=calc(c.result);
-  if(bg.done)return toast('Tap Pay or Leave it to carry on');
-  if(bg.busy)return;
-  bg.started=true;if(c.step==='choose')c.step='bargain';
+  if(bg.busy||bg.done)return;
   const req={item:k.p.name,category:k.p.cat,currency:'IDR',range:{min:k.mn,max:k.mx},plan:k.plan,myLastOffer:bg.myLast,round:bg.round+1,refusedBefore:bg.refusedBefore,language:'id-ID',bargainMode:k.mode,...extra};
   const them={who:'them',text:themText};bg.turns.push(them);bg.busy=true;bg.note='';c.err='';c.scroll='end';render();
   let out;
@@ -1020,7 +1007,7 @@ async function finishRec(stream,chunks,type,target){
   const c=S.check;clearTimeout(recTimer);stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;
   c.listening=false;c.hearing=true;render();
   try{
-    const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}),target==='seller'?['id','en']:undefined)).trim():'';
+    const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}))).trim():'';
     c.hearing=false;
     if(target==='seller'){c.hearing=false;return sellerSaid(text)} // hand-the-phone answer: straight into the chat
     if(!text){c.text='';return micFail('No clear speech was heard. Try again or type it.')}
@@ -1183,9 +1170,7 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f-friend'){e.preventDefault();A.addFriend()}if(e.key==='Enter'&&e.target.id==='c-ask'){e.preventDefault();A.send()}if(e.key==='Enter'&&e.target.id==='bg-in'){e.preventDefault();A.bgSend()}});
 document.addEventListener('change',e=>{if(e.target.id==='p-amt')render();if(e.target.id==='photoIn'&&e.target.files[0]){const r=new FileReader();r.onload=()=>readPhoto(r.result);r.readAsDataURL(e.target.files[0])}});
 // open the right screen for the address: an invite, a saved trip, or the start of onboarding
-// the module script above sets window.fairfareApi after this one starts, so wait for it before opening a saved trip
-(async function boot(){
-  for(let i=0;i<200&&!(window.fairfareApi&&window.fairfareShared);i++)await new Promise(r=>setTimeout(r,25));
+(function boot(){
   const join=location.pathname.match(/^\/join\/([^/]+)/);
   S.session=readSession();
   if(join)return startJoin(decodeURIComponent(join[1]));
