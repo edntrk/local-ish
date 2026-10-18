@@ -7,7 +7,9 @@
 <meta name="description" content="Know before you pay. Local-ish helps travellers understand unfamiliar prices and split costs with friends.">
 <title>local-ish</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
 <link rel="manifest" href="/site.webmanifest">
 <!-- INTERFACE role: this is the clickable prototype. Step by step, swap its fake logic for calls in src/api.ts. -->
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -86,6 +88,9 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 
 /* onboarding */
 .onb-top{display:flex;justify-content:space-between;align-items:center}
+.brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em}
+.brand i{font-style:normal;background:var(--lime);color:#0A0A0A;border-radius:9px;padding:0 8px 3px;margin-right:2px}
+/* the image logo (public/local-ish-logo.png) is kept but not used in the header right now */
 .brand-image{display:block;flex:none;width:132px;height:44px;background:url("/local-ish-logo.png") center / 208px 208px no-repeat}
 .progress{height:6px;background:var(--track);border-radius:99px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--primary);border-radius:99px}
@@ -373,6 +378,7 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 /* skip link + debug page switcher */
 .skip{align-self:center;text-decoration:underline;text-underline-offset:3px}
 #dbg{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;display:flex;align-items:center;gap:4px;background:var(--ink);color:var(--ink-fg);border:1px solid var(--ink-line);border-radius:999px;padding:4px;font-size:12px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#dbg[hidden]{display:none}
 #theme{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--fg);background:var(--surface);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 #theme svg{width:22px;height:22px}
 #dbg span{padding:0 8px;white-space:nowrap}
@@ -382,10 +388,11 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 
 <div id="app"></div>
 <div id="toast" hidden role="status"></div>
-<div id="dbg" aria-label="Debug: switch page"></div>
+<div id="dbg" aria-label="Debug: switch page" hidden></div>
 <button id="theme" type="button"></button>
 
-<script type="module">import { api } from "/src/api.ts"; import * as shared from "@fairfare/shared"; window.fairfareApi = api; window.fairfareShared = shared; // shared = the same bargain rules the API uses</script>
+<script type="module">import { api } from "/src/api.ts"; import * as shared from "@fairfare/shared"; window.fairfareApi = api; window.fairfareShared = shared; // shared = the same bargain rules the API uses
+if (import.meta.env.DEV) { document.documentElement.dataset.dev = "1"; window.dbg && window.dbg(); } // the debug page switcher exists only while running `npm run dev`</script>
 <script>
 /* ---------- data (sample estimates for the demo; verify before launch) ---------- */
 const RATES={GBP:21500,EUR:18500,USD:16300,IDR:1,AUD:10700,CAD:11800,AED:4400,SGD:12600,MYR:3800,INR:190,JPY:108,TRY:400,THB:480}; // IDR per 1 unit of that currency (approx.)
@@ -604,7 +611,7 @@ function onb(){
     <div id="bc-note" aria-live="polite">${bcNote()}</div>
     ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
     <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" id="onb-next" data-action="next" ${onb3Ok()&&!S.starting?'':'disabled'}>${S.starting?'Starting…':'Start my trip'}</button></div>`;}
-  return `<div class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="eyebrow">Step ${s} of 3</span></div>
+  return `<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">Step ${s} of 3</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>${s===1&&S.loadErr?`<p class="err">${esc(S.loadErr)}</p>`:''}${body}`;
 }
 
@@ -639,7 +646,7 @@ function inviteCard(){
   </section>`}
 function homeView(){
   return `
-  <header class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="cur"><i>Rp</i>IDR</span></header>
+  <header class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="cur"><i>Rp</i>IDR</span></header>
   <h1 class="hello"><span>Hello</span> <b>${esc(S.user.name||'there')}</b>!</h1>
   ${S.session?`<button class="link" data-action="switchUser">Not you? Switch</button>`:''}
   ${S.loadErr?`<p class="err">${esc(S.loadErr)}</p>`:''}
@@ -745,7 +752,8 @@ function verdictCard(v,a,line,extra,buttons){
 const vbtn=(label,attrs)=>`<button class="btn" ${attrs}>${label}</button>`;
 const payBtn=price=>vbtn('Pay',`data-action="choose" data-next="pay" data-price="${Math.round(price)}"`);
 const leaveBtn=()=>vbtn('Leave it','data-action="choose" data-next="leave"');
-const sellerBubble=(text,english)=>`<div class="turn them"><p>${esc(text)}</p>${english&&english!==text?`<small>${esc(english)}</small>`:''}</div>`;
+// the seller's Play reads the ENGLISH line aloud (ElevenLabs English voice, the browser's en-US voice if that fails), so I can hear what they said
+const sellerBubble=(text,english)=>{const en=english&&english!==text?english:'';return `<div class="turn them"><p>${esc(text)}</p>${en?`<small>${esc(en)}</small><div class="plays">${playBtn(en,'en-US','Play')}</div>`:''}</div>`};
 const playBtn=(text,lang,label)=>`<button class="btn btn-ghost play" data-action="speak" data-lang="${esc(lang||'id-ID')}" data-text="${esc(text)}">▶ ${label}</button>`;
 const meBubble=(local,english,lang,polite)=>`<div class="turn me"><p class="phrase">${esc(local)}</p><small>${esc(english)}</small><div class="plays">${playBtn(local,lang,'Play')}${polite?playBtn(polite,lang,'Polite version'):''}</div></div>`;
 
@@ -767,7 +775,7 @@ function resultView(){
   const alt2=alt&&alt.name!==p.name?alt:null,generic=(k.tips||[])[0]||'';
   const tip=mode==='fixed'&&alt2?`Cheaper nearby: ${alt2.name}, usually ${rangeTxt(alt2.min,alt2.max)}`:(p.tip||generic);
   const web=r.api&&r.api.source==='web',links=(r.fresh&&r.sources&&r.sources.length?r.sources:(r.api&&r.api.sources)||[]).slice(0,3);
-  const extra=(tip?`<p class="vline tip">💡 ${esc(tip)}</p>`:'')+(web&&links.length?`<p class="src">🌐 ${links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · ')}</p>`:'');
+  const extra=(tip?`<p class="vline tip">💡 ${esc(tip)}</p>`:'')+(web&&links.length?`<p class="src">🌐 ${links.map(u=>/^https?:/i.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`:esc(u)).join(' · ') /* a source can also be just a site name */}</p>`:'');
   const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${loc(a)}`:esc(r.said);
   const askOk=mode==='ask'&&v!=='great';
   const items=[{html:()=>`<p class="turn them first-said">${said}</p>`},
@@ -875,10 +883,12 @@ function budgetFrames(){
 /* ---------- render ---------- */
 const STEP_NAMES=['Details','Friends','Trip','Welcome','Home','Join'];
 let welcomeT;
-// Debug switcher: remove this and the #dbg div when the prototype is done.
+// Debug switcher: only drawn in local development (the module script below sets data-dev from Vite's import.meta.env.DEV), never on the deployed site.
 // Pages 2+ need a home country, so fill the blanks with sample values when jumping past page 1.
 function ensureDefaults(){if(!cty()){S.user.country='GB';S.user.home='GBP'}}
-function dbg(){const d=$('#dbg');d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
+function dbg(){const d=$('#dbg');
+  if(!document.documentElement.dataset.dev){d.hidden=true;d.innerHTML='';return}
+  d.hidden=false;d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
 function render(scroll){
   if(S.step>=2)ensureDefaults();
   if(FEATURES.invites&&S.step===2&&!S.inviteCode&&!S.inviteTried&&!T()){S.inviteTried=true;window.fairfareApi.reserveInviteCode().then(c=>{S.inviteCode=c.code;if(S.step===2)render()},()=>{S.inviteErr=true;if(S.step===2)render()})}
@@ -1139,7 +1149,7 @@ async function startJoin(code){
   catch(e){S.join.bad=true;S.join.err=/^Request failed/.test(e.message)?INVITE_ERR:e.message}
   S.join.loading=false;render()}
 function joinView(){
-  const j=S.join,top=`<div class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="eyebrow">You're invited</span></div>`;
+  const j=S.join,top=`<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">You're invited</span></div>`;
   if(j.loading)return `${top}<p class="muted">Opening your invite…</p>`;
   if(j.bad)return `${top}<div><h1>Invite link</h1></div><p class="err">${esc(j.err)}</p><button class="btn btn-ghost btn-block" data-action="toStart">Start my own trip</button>`;
   const i=j.info,cur=SYM[i.homeCurrency]?i.homeCurrency:'GBP';
@@ -1179,7 +1189,7 @@ async function sendText(t,from,said){const c=S.check;
     if(pr.currency==='IDR'&&pr.confidence>=.5&&pr.itemId){
       try{const ck=await window.fairfareApi.check({tripId:S.session?S.session.tripId:'demo',itemId:pr.itemId,amount:pr.amount,style:pr.style,...(pr.situation?{situation:pr.situation}:{}),...(pr.bargainMode?{bargainMode:pr.bargainMode}:{})});
         if(ck.currency==='IDR'){api=ck;learnItem(ck.item)}}catch(e){}
-      if(api||item(pr.itemId))r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
+      if(api||item(pr.itemId))r={itemId:pr.itemId,amount:(api&&api.amount)||pr.amount,style:pr.style}; // the API may have filled in missing thousands
     }
   }catch(e){parsed=false;apiMsg=e.message||''}
   clearTimeout(slow);c.busy=false;c.busyMsg='';

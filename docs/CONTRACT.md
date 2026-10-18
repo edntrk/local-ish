@@ -103,9 +103,11 @@ Gemini only reads and translates the reply and suggests an offer and wording. Th
 When Gemini understands a sentence ("surf lesson in Canggu, 500000") but our list has no matching item, `POST /api/parse` researches it instead of giving up:
 
 1. Gemini with Google Search finds the usual local price range in IDR for that item (2 to 3 source pages). It is **never told the tourist's quote**, and only search results are saved.
-2. Code checks the answer: `0 < min < max`, `max <= 50 x min`, currency `IDR`, one of our categories (`other` is stored as `shopping` for now), at least one source URL, name up to 60 characters. Anything that fails is rejected.
-3. It is saved in `price_items` with `origin = 'web'`, `source` = the first URL, `checked_on` = today. An existing slug is reused, never duplicated (`seed` rows are never overwritten).
-4. The normal flow continues: `/api/check` uses the new item like any other.
+2. Code checks the answer: `0 < min < max`, `max <= 50 x min`, currency `IDR`, one of our categories (a category Gemini made up is replaced by the one the sentence suggested, else `other`, never `shopping`), at least one usable source, name up to 60 characters. Anything that fails is rejected.
+   - **Sources are real:** Gemini's search results are `vertexaisearch.cloud.google.com` redirect links. They are followed (up to 3 hops, 3 seconds) to the real page; if that fails the site name from the result's title is saved (`booking.com`). A redirect link is never saved or shown.
+3. Before searching and again before saving, the same city and category are checked for a row with the same name once normalized (lowercase, no brackets, no "in Bali" / "local", units or counts). If one exists it is reused and nothing is inserted.
+4. It is saved in `price_items` with `origin = 'web'`, `source` = the first URL, `checked_on` = today. An existing slug is reused, never duplicated (`seed` rows are never overwritten).
+5. The normal flow continues: `/api/check` uses the new item like any other.
 
 Next time the item comes straight from the database. A `web` price older than 30 days is researched again (if that fails, the old numbers stay).
 

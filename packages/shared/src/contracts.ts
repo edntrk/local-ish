@@ -173,6 +173,7 @@ export const CheckResult = z.object({
   item: PriceItem,
   range: z.object({ min: z.number(), max: z.number() }),
   target: z.number(), // a fair price to aim for when bargaining
+  amount: z.number().optional(), // the price that was actually checked: the quoted one, with missing thousands filled in ("250" for a taxi is 250000)
   currency: z.string(),
   budget: z.object({
     dailyAllowance: z.number(),

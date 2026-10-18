@@ -1,4 +1,4 @@
-import { NUMBER_WORDS, lastAmount, rupiahAmount, type ParsedAsk, type ParseRequest, type PriceItem } from "@fairfare/shared";
+import { NUMBER_WORDS, inferThousands, lastAmount, rupiahAmount, type ParsedAsk, type ParseRequest, type PriceItem } from "@fairfare/shared";
 import type { AskParser } from "../ports";
 
 const KEYS: [string, RegExp][] = [
@@ -23,7 +23,8 @@ export class MockAskParser implements AskParser {
     // a price with no reference item (a hotel, a surf lesson): hand it on as "unknown item" so the price the tourist gave is never lost
     if (!key) throw new UnknownItemError(itemName(t), undefined, { amount, currency, style, situation: t.trim().slice(0, 120), confidence: 0.5 });
     // the sentence itself is the situation, so words like "supermarket" or "Grab app" can make it a fixed-price place
-    return { itemId: key[0], amount, currency, style, situation: t.trim().slice(0, 120), confidence: 0.7 };
+    const ref = prices.find((p) => p.id === key[0])!;
+    return { itemId: key[0], amount: inferThousands(amount, { range: ref }), currency, style, situation: t.trim().slice(0, 120), confidence: 0.7 };
   }
 }
 

@@ -90,3 +90,18 @@ describe("price formats: the right number every time, never 0", () => {
     expect(await read(text)).toMatchObject({ itemId, amount });
   });
 });
+
+describe("missing thousands, with Gemini and without", () => {
+  const SEED = SEED_PRICES;
+  const parse = (text: string) => new MockAskParser().parse({ city: "bali", text }, SEED);
+  it("the mock reads 'es teh 30' as 30,000 and 'taksi 250' as 250,000", async () => {
+    expect(await parse("es teh 30")).toMatchObject({ itemId: "tea", amount: 30000 });
+    expect(await parse("taksi 250")).toMatchObject({ itemId: "taxi-city", amount: 250000 });
+  });
+  it("a Gemini reply that dropped the thousands is fixed from the item's usual range", async () => {
+    respond({ ...answer, itemId: "tea", item: "Iced tea", amount: 30, totalAmount: 30 });
+    expect(await gemini("es teh 30")).toMatchObject({ itemId: "tea", amount: 30000 });
+    respond({ ...answer, itemId: "taxi-city", item: "Taxi", amount: 250, totalAmount: 250 });
+    expect(await gemini("taksi 250")).toMatchObject({ itemId: "taxi-city", amount: 250000 });
+  });
+});

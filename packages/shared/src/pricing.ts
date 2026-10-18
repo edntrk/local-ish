@@ -175,6 +175,7 @@ export function checkPrice(
     item,
     range,
     target,
+    amount,
     currency: item.currency,
     budget: {
       dailyAllowance: Math.round(daily),

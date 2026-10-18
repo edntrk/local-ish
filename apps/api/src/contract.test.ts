@@ -504,3 +504,23 @@ describe("POST /api/bargain keeps the conversation", () => {
     expect(r.body).toMatchObject({ intent: "counter", theirNumber: 200000, move: "counter" });
   });
 });
+
+describe("POST /api/check fills in missing thousands and never calls an implausible price a great deal", () => {
+  const check = (amount: number, itemId = "taxi-city") => call("/api/check", { method: "POST", body: JSON.stringify({ tripId: "demo", itemId, amount, style: "local" }) });
+  it("'250' for a taxi is checked as 250,000, and the result says so", async () => {
+    const r = await check(250);
+    expect(r.status).toBe(200);
+    const out = CheckResult.parse(r.body);
+    expect(out.amount).toBe(250000);
+    expect(out.verdict).toBe("tooHigh");
+  });
+  it("'30' for iced tea is 30,000; a real amount is untouched", async () => {
+    expect(CheckResult.parse((await check(30, "tea")).body)).toMatchObject({ amount: 30000, verdict: "high" }); // 30,000 is a little over the usual 10k to 25k
+    expect(CheckResult.parse((await check(30000, "tea")).body)).toMatchObject({ amount: 30000 });
+  });
+  it("a price still far below anything real is refused with a plain sentence, not called great", async () => {
+    const r = await check(1, "taxi-airport"); // 1 becomes 1,000: under 1% of the usual minimum
+    expect(r.status).toBe(422);
+    expect(r.body.error).toContain("leave out the thousands");
+  });
+});

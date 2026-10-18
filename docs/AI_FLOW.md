@@ -48,4 +48,4 @@ Used while setting up a trip. Code decides the numbers (`typicalPerDay`, `budget
 | `VOICE_MODE` | phone voice, canned transcript | `elevenlabs`: speech to text and text to speech |
 | `DATA_MODE` | in-memory trips and the Bali price list | `tiger`: PostgreSQL (Tiger Data) |
 
-Keys live in `.env` only (`GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `DATABASE_URL`).
+Keys live in `.env` only (`GEMINI_API_KEY`, `GEMINI_MODEL`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, optional `ELEVENLABS_VOICE_ID_EN` (the voice that reads the seller's English translation aloud; a ready-made English voice is used if it is empty), `DATABASE_URL`).

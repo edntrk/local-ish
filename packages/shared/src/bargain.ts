@@ -7,6 +7,7 @@
 import type { BargainIntent, BargainMove, BargainRequest, BargainResponse, Category } from "./contracts";
 import { detectQuantity, lastAmount } from "./money";
 import { roundMoney } from "./pricing";
+import { inferThousands } from "./scale";
 import { cleanText, oneSentence } from "./text";
 
 /** After this many replies, a price still above the walk-away limit means walking away. */
@@ -116,11 +117,13 @@ export function decideBargain(req: BargainRequest, draft?: BargainDraft): Bargai
   const { openWith: open, aimFor: aim, walkAwayAbove: walk } = plan;
   const cur = req.currency;
   // the number the tourist typed wins over the one the AI heard
-  let theirs = positive(req.theirNumber) ?? positive(draft?.theirNumber);
+  // "170" or "seratus tujuh puluh" with no scale word: the usual range and my own offers say it means 170,000
+  const scale = (n: number | undefined) => (n === undefined ? undefined : inferThousands(n, { range: req.range, anchors: [last, aim] }));
+  let theirs = scale(positive(req.theirNumber) ?? positive(draft?.theirNumber));
   // a bundle ("3 lessons for 1.2 juta"): the price that matters is per lesson. The total is read from the words, not from the AI.
   const reply = req.theirReply ?? "";
   const quantity = detectQuantity(reply) ?? (draft?.quantity && Number.isInteger(draft.quantity) && draft.quantity >= 2 && draft.quantity <= 20 ? draft.quantity : null);
-  const total = quantity ? positive(lastAmount(reply) ?? undefined) ?? theirs : undefined;
+  const total = quantity ? scale(positive(lastAmount(reply) ?? undefined)) ?? theirs : undefined;
   const bundle = quantity && total ? { quantity, total, perUnit: roundMoney(total / quantity, req.currency) } : undefined;
   if (bundle) theirs = bundle.perUnit;
   // what they meant: a named price always means a counter; otherwise the AI's reading, else a rough guess from the words

@@ -18,5 +18,6 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL ?? "",
   elevenLabsKey: process.env.ELEVENLABS_API_KEY ?? "",
   elevenLabsVoiceId: process.env.ELEVENLABS_VOICE_ID ?? "",
+  elevenLabsVoiceIdEn: process.env.ELEVENLABS_VOICE_ID_EN || undefined, // optional: the voice that reads English aloud
   geminiKey: process.env.GEMINI_API_KEY ?? "",
 };

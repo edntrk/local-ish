@@ -1,6 +1,6 @@
 /** Gemini extracts a price check or asks for the missing detail. */
 import { z } from "zod";
-import { CATEGORIES, ParsedAsk, rupiahAmount, type ParseRequest, type PriceItem } from "@fairfare/shared";
+import { CATEGORIES, ParsedAsk, inferThousands, rupiahAmount, type ParseRequest, type PriceItem } from "@fairfare/shared";
 import type { AskParser } from "../ports";
 import { ParseError, UnknownItemError } from "./mock";
 
@@ -142,7 +142,9 @@ For incomplete input use itemId "", amount 0 and confidence 0 as placeholders, a
       }
       throw new ParseError("What are you buying, and how much are they asking?");
     }
-    return ParsedAsk.parse(reply);
+    // "250" for a taxi means 250,000: the item's usual range says which scale is meant
+    const ref = prices.find(p => p.id === reply.itemId)!;
+    return ParsedAsk.parse({ ...reply, amount: inferThousands(reply.amount, { range: ref }) });
   }
 
   async draft(req: ParseRequest, prices: PriceItem[]): Promise<ExpenseDraft> {

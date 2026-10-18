@@ -4,3 +4,4 @@ export * from "./money";
 export * from "./bargain";
 export * from "./text";
 export * from "./budget";
+export * from "./scale";

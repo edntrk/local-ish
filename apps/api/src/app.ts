@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { ZodError, z } from "zod";
-import { BargainRequest, BudgetCheckRequest, CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, applyBudgetNote, budgetCheck, budgetLocal, budgetResult, checkPrice, cheaperAlternative, decideBargain, summarise, typicalPerDay } from "@fairfare/shared";
+import { BargainRequest, BudgetCheckRequest, CheckRequest, NewExpense, ParseRequest, TtsRequest, Trip, applyAdvice, applyBudgetNote, budgetCheck, budgetLocal, budgetResult, checkPrice, cheaperAlternative, decideBargain, inferThousands, isImplausiblyLow, rangeFor, summarise, typicalPerDay } from "@fairfare/shared";
 import type { AdviceWriter, AskParser, BargainCoach, BudgetExplainer, DataStore, PriceLearner, VoiceService } from "./ports";
 import { ParseError } from "./ai/mock";
 import { UnknownItemError } from "./ai/gemini";
@@ -116,10 +116,14 @@ export function createApp({ data, voice, ai, advisor, learner, coach, budgetExpl
     // the numbers and the verdict come from checkPrice; Gemini only explains them, and a template stands in if it fails
     // the mode is decided in code: the item's usual mode, the situation can change it, fancy places and chains are never "bargain"
     const alternative = cheaperAlternative(item, body.style, await data.listPrices(trip.city));
-    const result = checkPrice(trip, item, body.amount, body.style, { bargainMode: body.bargainMode, situation: body.situation, alternative });
+    // a missing scale ("250" for a taxi) is read as thousands; a price still far below anything real is never called a good deal
+    const range = rangeFor(item, body.style);
+    const amount = inferThousands(body.amount, { range });
+    if (isImplausiblyLow(amount, range)) return res.status(422).json({ error: "That price looks too low. Did you leave out the thousands? Try 250k or 250000." });
+    const result = checkPrice(trip, item, amount, body.style, { bargainMode: body.bargainMode, situation: body.situation, alternative });
     if (!advisor) return res.json(result);
     try {
-      res.json(applyAdvice(result, await advisor.advise(result, { city: trip.city, amount: body.amount, style: body.style, situation: body.situation })));
+      res.json(applyAdvice(result, await advisor.advise(result, { city: trip.city, amount, style: body.style, situation: body.situation })));
     } catch (err) {
       console.error("[fallback] advice failed, using template:", (err as Error).message);
       res.json(result);

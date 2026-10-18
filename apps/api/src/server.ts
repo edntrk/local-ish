@@ -27,7 +27,7 @@ let voice = new MockVoice() as VoiceService;
 let voiceMode = "mock";
 if (config.voiceMode === "elevenlabs") {
   if (config.elevenLabsKey && config.elevenLabsVoiceId) {
-    voice = withFallback<VoiceService>("voice", new ElevenLabsVoice(config.elevenLabsKey, config.elevenLabsVoiceId), new MockVoice());
+    voice = withFallback<VoiceService>("voice", new ElevenLabsVoice(config.elevenLabsKey, config.elevenLabsVoiceId, config.elevenLabsVoiceIdEn), new MockVoice());
     voiceMode = "elevenlabs (falls back to mock)";
   } else warn("VOICE_MODE=elevenlabs but the key or voice id is empty. Using mock voice.");
 }

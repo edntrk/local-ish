@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import type { PriceResearcher, ResearchedPrice } from "../ports";
+import { cleanSource } from "./learn";
 
 const Reply = z.union([
   z.object({ error: z.string() }),
@@ -35,15 +36,33 @@ export function extractJson(text: string): unknown {
 }
 
 const isUrl = (u: string) => { try { return /^https?:$/.test(new URL(u).protocol); } catch { return false; } };
+const isRedirect = (u: string) => /vertexaisearch|grounding-api-redirect/i.test(u);
 
-/** Search results come back as google redirect links; follow one hop to show the real page. */
-async function realUrl(uri: string): Promise<string> {
+/**
+ * Search results come back as vertexaisearch redirect links. Follow them (up to 3 hops, 3 seconds in all) to the real page.
+ * Returns undefined when that doesn't work, and a redirect link is never returned: the caller falls back to the site name.
+ */
+export async function realUrl(uri: string): Promise<string | undefined> {
+  if (!isUrl(uri)) return undefined;
+  if (!isRedirect(uri)) return uri;
+  const signal = AbortSignal.timeout(3000);
+  let current = uri;
   try {
-    if (new URL(uri).hostname !== "vertexaisearch.cloud.google.com") return uri;
-    const res = await fetch(uri, { redirect: "manual", signal: AbortSignal.timeout(3000) });
-    const next = res.headers.get("location");
-    return next && isUrl(next) ? next : uri;
-  } catch { return uri; }
+    for (let hop = 0; hop < 3 && isRedirect(current); hop++) {
+      const res = await fetch(current, { redirect: "manual", signal });
+      const next = res.headers.get("location");
+      if (!next) return undefined;
+      current = new URL(next, current).toString();
+    }
+  } catch { return undefined; }
+  return isUrl(current) && !isRedirect(current) ? current : undefined;
+}
+
+/** One search result as the source to save: the real page, else the site's name from its title ("booking.com"), else nothing. */
+export async function sourceOf(chunk: { web?: { uri?: string; title?: string } }): Promise<string | undefined> {
+  const uri = chunk.web?.uri;
+  const page = uri ? await realUrl(uri) : undefined;
+  return cleanSource(page) ?? cleanSource(chunk.web?.title);
 }
 
 export class GeminiResearcher implements PriceResearcher {
@@ -74,10 +93,10 @@ export class GeminiResearcher implements PriceResearcher {
     if (!parsed.success) throw new Error("gemini research: unexpected JSON shape");
     if ("error" in parsed.data) throw new Error(`gemini research: ${parsed.data.error}`);
     const found = parsed.data;
-    // pages the search really used come first; the ones the model wrote down fill the rest
-    const chunks: { web?: { uri?: string } }[] = cand?.groundingMetadata?.groundingChunks ?? [];
-    const grounded = await Promise.all(chunks.map((c) => c.web?.uri).filter((u): u is string => !!u && isUrl(u)).slice(0, 3).map(realUrl));
-    const sources = [...new Set([...grounded, ...found.sources.filter(isUrl)])].slice(0, 3);
+    // pages the search really used come first (the real link, or at least the site's name); the ones the model wrote down fill the rest
+    const chunks: { web?: { uri?: string; title?: string } }[] = cand?.groundingMetadata?.groundingChunks ?? [];
+    const grounded = (await Promise.all(chunks.slice(0, 3).map(sourceOf))).filter((u): u is string => !!u);
+    const sources = [...new Set([...grounded, ...found.sources.map(cleanSource).filter((u): u is string => !!u)])].slice(0, 3);
     return { id: found.id ?? "", name: found.name, category: found.category, min: found.min, max: found.max, currency: found.currency, tip: found.tip, sources, bargain: found.bargain };
   }
 }
