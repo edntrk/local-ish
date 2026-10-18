@@ -1,10 +1,10 @@
 # Local-ish 🏷️
 
-**Know before you pay.** Local-ish helps travellers understand unfamiliar prices, record expenses, and split costs with friends. Type or say a price, such as "taxi to Medina, 250", compare it with available local reference data, and hear a bargaining phrase.
+**Know before you pay.** Local-ish helps travellers understand unfamiliar prices, record expenses, and split costs with friends. Type or say a price, such as "taxi from the airport to Seminyak, 400000", compare it with available local reference data, and hear a bargaining phrase.
 
 The codebase uses the internal package name `fairfare`.
 
-Built for the IKU Womxn in STEM Hackathon. Demo city: Marrakech.
+Built for the IKU Womxn in STEM Hackathon. Demo city: Bali (Indonesia). Prices are in IDR and bargaining phrases are in Bahasa Indonesia.
 
 ---
 
@@ -28,13 +28,11 @@ In VS Code you can also press `Ctrl/Cmd + Shift + P` → **Run Task** → **Fair
 
 ## Who does what
 
-| Role | Person | Your folder | Read first |
-|---|---|---|---|
-| 🎨 Interface | Renata | `apps/web/` | [docs/ROLES.md](docs/ROLES.md#interface) |
-| 🗄️ Data | Ranyn | `apps/api/src/data/`, `db/` | [docs/ROLES.md](docs/ROLES.md#data) |
-| 🎙️ Voice & AI | Deniz | `apps/api/src/voice/`, `apps/api/src/ai/` | [docs/ROLES.md](docs/ROLES.md#voice--ai) |
-
-The task list is in **[docs/BOARD.md](docs/BOARD.md)**.
+| Role | Person | Folder |
+|---|---|---|
+| 🎨 Interface | Renata | `apps/web/` |
+| 🗄️ Data | Ranyn | `apps/api/src/data/`, `db/` |
+| 🎙️ Voice & AI | Deniz | `apps/api/src/voice/`, `apps/api/src/ai/` |
 
 ---
 
@@ -42,7 +40,7 @@ The task list is in **[docs/BOARD.md](docs/BOARD.md)**.
 
 - **Gemini:** understands informal and multilingual text and photo inputs, extracts the item, amount and currency, and provides short English descriptions or clarification questions. Reference data supplies price comparisons; the AI does not invent market averages.
 - **ElevenLabs:** transcribes recordings with Scribe v2 and generates spoken bargaining phrases with Multilingual v2. Speech generation and transcription have passed a live round-trip test.
-- **Validation:** structured responses, recording formats, timeouts and API errors are checked. The current Voice & AI test suite and existing project checks pass together (28 tests).
+- **Validation:** structured responses, recording formats, timeouts and API errors are checked. The current Voice & AI test suite and existing project checks pass together.
 
 The Voice & AI adapters are available in [pull request #1](https://github.com/edntrk/local-ish/pull/1). Frontend recording, editable transcripts and budget connections are separate integration changes; check the branch being used before expecting the complete flow.
 
@@ -80,7 +78,7 @@ Restart the app after changing `.env`. Keep credentials private; never commit `.
 3. **Switches, not rewrites.** `.env` decides mock or real (`DATA_MODE`, `VOICE_MODE`, `AI_MODE`).
 4. **Clear service errors.** Voice & AI adapters report invalid input, connection failures and quota limits in plain language. Mock services remain available for development; a mock response is not proof of a successful live API call.
 5. **Contract tests.** `npm run check` runs TypeScript checks and automated tests for the shared logic, API contracts and AI adapters. GitHub runs the checks on pull requests.
-6. **Pull request workflow.** Work on a separate branch and request review before merging into `main`. See [docs/WORKFLOW.md](docs/WORKFLOW.md).
+6. **Pull request workflow.** Work on a separate branch and request review before merging into `main`.
 
 ---
 
@@ -94,8 +92,6 @@ Restart the app after changing `.env`. Keep credentials private; never commit `.
 
 ## More docs
 
-- [docs/ROLES.md](docs/ROLES.md): each person's job and first steps
 - [docs/CONTRACT.md](docs/CONTRACT.md): every API endpoint with examples
-- [docs/WORKFLOW.md](docs/WORKFLOW.md): git, branches, pull requests, using Claude Code together
-- [docs/BOARD.md](docs/BOARD.md): the task board
+- [docs/AI_FLOW.md](docs/AI_FLOW.md): how the AI works, and what the code never lets it change
 - [CLAUDE.md](CLAUDE.md): rules Claude Code follows in this project

@@ -153,7 +153,7 @@ export type SttResponse = z.infer<typeof SttResponse>;
 
 export const TtsRequest = z.object({
   text: z.string().min(1).max(300),
-  lang: z.string(), // BCP-47, e.g. "ar-MA", "fr-FR"
+  lang: z.string(), // BCP-47, e.g. "id-ID"
 });
 export type TtsRequest = z.infer<typeof TtsRequest>;
 

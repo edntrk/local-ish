@@ -44,6 +44,6 @@ if (config.aiMode === "gemini") {
 }
 
 void data.init?.().catch((e) => console.warn("[data] setup failed:", (e as Error).message)); // e.g. add new columns; safe to re-run
-createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes: { data: dataMode, voice: voiceMode, ai: aiMode } }).listen(config.port, () => {
+createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes: { data: dataMode, voice: voiceMode, ai: aiMode }, corsOrigins: config.corsOrigins }).listen(config.port, () => {
   console.log(`FairFare API on http://localhost:${config.port}  ·  data=${dataMode}  voice=${voiceMode}  ai=${aiMode}`);
 });

@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run build -w @fairfare/web",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    { "source": "/trip/:path*", "destination": "/index.html" },
+    { "source": "/join/:path*", "destination": "/index.html" }
+  ]
+}

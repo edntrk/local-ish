@@ -3,7 +3,7 @@
 All types live in `packages/shared/src/contracts.ts`. This page shows the same thing with examples.
 Base URL in development: `http://localhost:8787` (the web app reaches it as `/api/...`).
 Every error looks like `{ "error": "A sentence a tourist understands" }`.
-Money is always in the trip's **local currency** (MAD).
+Money is always in the trip's **local currency** (IDR for Bali). Bargaining phrases are in **Bahasa Indonesia** (`id-ID`), with an English meaning next to them.
 
 | Method | Path | Owner | Body → Response |
 |---|---|---|---|
@@ -17,8 +17,10 @@ Money is always in the trip's **local currency** (MAD).
 | GET | `/api/trips/:id/expenses` | Data | → `Expense[]` |
 | POST | `/api/trips/:id/expenses` | Data | `{ item, category, amount, paidBy, shares }` → `Expense` |
 | GET | `/api/trips/:id/summary?personId=<id>` | Data | → `Summary` worked out for **that person**: `myBudget` (group ÷ people), `mySpent`, `myLeft`, `groupSpent`, `groupLeft`, `net`, and `transfers` (fewest payments to settle up). No `personId` = the trip creator. |
-| POST | `/api/parse` | AI | `{ city, text? , imageBase64? }` → `ParsedAsk` (422 if not understood) |
-| POST | `/api/check` | shared logic | `{ tripId, itemId, amount, style }` → `CheckResult` |
+| POST | `/api/parse` | AI | `{ city, text? , imageBase64? }` → `ParsedAsk` (422 if not understood). If the item isn't in our price list it is **researched and saved** first (see "The price database learns new items"). |
+| POST | `/api/check` | shared logic | `{ tripId, itemId, amount, style, situation?, bargainMode? }` → `CheckResult` (numbers and verdict from code, advice and Bahasa phrase from Gemini or a template) |
+| POST | `/api/bargain` | shared logic + AI | `BargainRequest` → `BargainResponse`: one step of the back-and-forth (see "Bargaining back-and-forth"). 400 for a fixed-price place. |
+| POST | `/api/budget-check` | shared logic + AI | `BudgetCheckRequest` → `BudgetCheckResult`: is this budget enough for a normal day (see "Budget check") |
 | POST | `/api/voice/stt` | Voice | raw audio (`content-type: audio/webm`) → `{ text }` |
 | POST | `/api/voice/tts` | Voice | `{ text, lang }` → mp3 audio, or **204** + `x-fairfare-mock: 1` (use the phone's voice) |
 
@@ -30,25 +32,27 @@ A demo trip with id **`demo`** always exists in mock mode (Renata, Bella, Dewi, 
 ## The main flow
 
 ```
-"taxi from the airport at night, he wants 250"
+"taxi from the airport at night, he wants 400000"
    │  POST /api/parse
    ▼
-{ "itemId": "taxi-airport", "amount": 250, "currency": "MAD", "style": "local", "confidence": 0.7 }
+{ "itemId": "taxi-airport", "amount": 400000, "currency": "IDR", "style": "local", "situation": "airport, at night", "confidence": 0.7 }
    │  POST /api/check  { tripId: "demo", itemId, amount, style }
    ▼
 {
   "verdict": "tooHigh",
-  "range": { "min": 100, "max": 150 },
-  "target": 125,
-  "budget": { "dailyAllowance": 1071, "myShareIfSplit": 83.33, "pctOfDaily": 8 },
-  "phrase": { "local": "Ghali bzaf! 125 dirham, safi?", "localLang": "ar-MA", "french": "...", "english": "..." },
-  "item": { ...PriceItem }, "currency": "MAD"
+  "range": { "min": 150000, "max": 250000 },
+  "target": 200000,
+  "bargainMode": "bargain",
+  "plan": { "openWith": 150000, "aimFor": 200000, "walkAwayAbove": 250000 },
+  "budget": { "dailyAllowance": 1842857, "myShareIfSplit": 133333.33, "pctOfDaily": 7 },
+  "phrase": { "local": "Wah, mahal banget! 150 ribu saja, boleh?", "polite": "Maaf, bisa 150 ribu saja, Pak?", "english": "Wow, that's very expensive! Just 150,000, okay?", "lang": "id-ID" },
+  "item": { ...PriceItem }, "currency": "IDR"
 }
    │  user taps Pay, ticks who to split with
    ▼
 POST /api/trips/demo/expenses
-{ "item": "Taxi: airport to Medina", "category": "transport", "amount": 125, "paidBy": "me",
-  "shares": { "me": 41.67, "bella": 41.67, "dewi": 41.66 } }      ← must add up to amount
+{ "item": "Taxi: airport to Seminyak", "category": "transport", "amount": 200000, "paidBy": "me",
+  "shares": { "me": 66666.67, "bella": 66666.67, "dewi": 66666.66 } }      ← must add up to amount
 ```
 
 Verdicts: `great` (below the usual range) · `fair` (inside it) · `high` (up to 30% over) · `tooHigh` (more than 30% over).
@@ -113,7 +117,7 @@ Additive fields: `PriceItem.origin` (`"seed"` or `"web"`), `ParsedAsk.item`, `Pa
 - Code decides every number (`typicalPerDay` and `budgetCheck` in `packages/shared/src/budget.ts`). A normal day = 3 × nasi goreng + 2 × city rides + 1 night's stay + 2 × water, the middle of each range × the style multiplier; an item the city doesn't have is skipped.
 - `perDay` = budget ÷ days (both end days count). At 100% of a normal day or more: `enough`. 70% up to 100%: `tight`. Under 70%: `notEnough`. `shortfall` is per day.
 - Gemini only gets the status and the setting (never an amount) and writes `summary` and `tip`. Any sentence that contains a digit, or is not clean, is replaced by a template sentence, as is everything if Gemini fails.
-- The money card ("Rp X/day left for N days") uses no API call besides `GET /api/prices` and the same shared `typicalPerDay`.
+- The Interface shows the result as a small note under the budget and date fields while setting up a trip. It never blocks starting the trip.
 
 ## Changing the contract
 

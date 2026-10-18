@@ -8,7 +8,10 @@ const pick = <T extends string>(v: string | undefined, allowed: readonly T[], fa
   (allowed as readonly string[]).includes(v ?? "") ? (v as T) : fallback;
 
 export const config = {
-  port: Number(process.env.API_PORT ?? 8787),
+  // Hosts like Render hand us PORT; API_PORT is for local use.
+  port: Number(process.env.PORT ?? process.env.API_PORT ?? 8787),
+  // Comma-separated frontend origins allowed to call the API. Empty = allow any (fine for local dev).
+  corsOrigins: (process.env.CORS_ORIGIN ?? "").split(",").map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean),
   dataMode: pick(process.env.DATA_MODE, ["mock", "tiger"] as const, "mock"),
   voiceMode: pick(process.env.VOICE_MODE, ["mock", "elevenlabs"] as const, "mock"),
   aiMode: pick(process.env.AI_MODE, ["mock", "gemini"] as const, "mock"),

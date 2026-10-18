@@ -7,12 +7,15 @@ import type { BargainResponse, BudgetCheckRequest, BudgetCheckResult, CheckReque
 /** what the page sends for one bargaining step (currency and language have defaults on the server) */
 export type BargainReq = Omit<import("@fairfare/shared").BargainRequest, "currency" | "language"> & { currency?: string; language?: string };
 
+// Empty in dev (Vite proxies /api). In production set VITE_API_URL to the API's address, e.g. https://fairfare-api.onrender.com
+const API = ((import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? "").replace(/\/+$/, "") + "/api";
+
 const OFFLINE = "Can't reach the server. Check your connection and try again.";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch("/api" + path, { headers: { "content-type": "application/json" }, ...init });
+    res = await fetch(API + path, { headers: { "content-type": "application/json" }, ...init });
   } catch {
     throw new Error(OFFLINE); // a plain sentence instead of "Failed to fetch"
   }
@@ -54,7 +57,7 @@ export const api = {
   speechToText: async (audio: Blob, languages?: string[]) => {
     // "audio/webm;codecs=opus" -> "audio/webm": the server only wants the plain type
     const type = (audio.type || "audio/webm").split(";")[0].trim();
-    const res = await fetch(`/api/voice/stt${languages?.length ? `?lang=${languages.join(",")}` : ""}`, { method: "POST", headers: { "content-type": type }, body: audio });
+    const res = await fetch(`${API}/voice/stt${languages?.length ? `?lang=${languages.join(",")}` : ""}`, { method: "POST", headers: { "content-type": type }, body: audio });
     if (!res.ok) throw new Error("Couldn't hear that. Try again or type it.");
     return ((await res.json()) as { text: string }).text;
   },
@@ -66,7 +69,7 @@ export const api = {
    */
   speak: async (text: string, lang: string): Promise<"api" | "device" | "none"> => {
     try {
-      const res = await fetch("/api/voice/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang }) });
+      const res = await fetch(`${API}/voice/tts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, lang }) });
       if (res.status === 200) {
         const url = URL.createObjectURL(await res.blob());
         const audio = new Audio(url);

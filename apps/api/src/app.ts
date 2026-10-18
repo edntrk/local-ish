@@ -8,7 +8,7 @@ import { ParseError } from "./ai/mock";
 import { UnknownItemError } from "./ai/gemini";
 import { isStale } from "./ai/learn";
 
-export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; coach?: BargainCoach; budgetExplainer?: BudgetExplainer; modes: { data: string; voice: string; ai: string } };
+export type Deps = { data: DataStore; voice: VoiceService; ai: AskParser; advisor?: AdviceWriter; learner?: PriceLearner; coach?: BargainCoach; budgetExplainer?: BudgetExplainer; modes: { data: string; voice: string; ai: string }; corsOrigins?: string[] };
 
 const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new one.";
 
@@ -16,9 +16,9 @@ const INVITE_ERROR = "This invite link doesn't work. Ask your friend for a new o
 const h = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response, next: NextFunction) =>
   fn(req, res).catch(next);
 
-export function createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes }: Deps) {
+export function createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes, corsOrigins = [] }: Deps) {
   const app = express();
-  app.use(cors());
+  app.use(cors(corsOrigins.length ? { origin: corsOrigins } : undefined));
   app.use(express.json({ limit: "8mb" })); // photos arrive as base64
 
   app.get("/api/health", (_req, res) => res.json({ ok: true, modes }));
