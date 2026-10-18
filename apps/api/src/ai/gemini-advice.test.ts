@@ -80,7 +80,7 @@ describe("mock parser (Bali)", () => {
     expect(lastAmount("hello")).toBeNull();
   });
   it("does not guess an item it has no price for, but keeps the price the tourist gave", async () => {
-    await expect(parse("Surf lesson, 500000")).rejects.toMatchObject({ item: "Surf lesson", ask: { amount: 500000, currency: "IDR" } });
-    await expect(parse("surf lesson")).rejects.toThrow("Add what it is"); // no price at all: still asks
+    await expect(parse("Scuba dive, 500000")).rejects.toMatchObject({ item: "Scuba dive", ask: { amount: 500000, currency: "IDR" } });
+    await expect(parse("scuba dive")).rejects.toThrow("Add what it is"); // no price at all: still asks
   });
 });

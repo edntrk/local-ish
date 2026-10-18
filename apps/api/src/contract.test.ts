@@ -336,7 +336,7 @@ describe("learning a new price end to end (parse -> research -> save -> check)",
     expect(checked.sources).toBeUndefined();
   });
   it("if research fails the answer is a plain 'no price yet' (itemId empty), never an error page", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mode = "quota";
     const r = await post("/api/parse", { city: "bali", text: "scuba dive, 900000" });
     expect(r.status).toBe(200);
@@ -387,7 +387,7 @@ describe("POST /api/bargain", () => {
   });
   it("if Gemini fails, the rules still answer: halfway, capped, with a Bahasa phrase", async () => {
     coachMode = "down";
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     const r = await post({ myLastOffer: 170000, theirNumber: 260000 });
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ move: "counter", myOffer: 215000 });
@@ -472,5 +472,35 @@ describe("POST /api/parse never loses the price of an item with no reference", (
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ itemId: "", amount: 400000, currency: "IDR", researched: false });
     expect(r.body.item.toLowerCase()).toContain("hotel");
+  });
+});
+
+describe("POST /api/bargain keeps the conversation", () => {
+  const seen: unknown[] = [];
+  let srv: Server, url = "";
+  const plan = { openWith: 100000, aimFor: 150000, walkAwayAbove: 250000 };
+  const send = async (o: Record<string, unknown>) => {
+    const r = await fetch(url + "/api/bargain", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: "Batik sarong", category: "shopping", range: { min: 50000, max: 150000 }, plan, myLastOffer: 60000, round: 1, bargainMode: "bargain", ...o }) });
+    return { status: r.status, body: await r.json() };
+  };
+  beforeAll(async () => {
+    const coach: BargainCoach = { coach: async (r) => { seen.push(r); return { theirReplyEnglish: "No, that is too expensive", intent: "refused" as const }; } };
+    srv = createApp({ data: new MockDataStore(), voice: new MockVoice(), ai: new MockAskParser(), coach, modes: { data: "mock", voice: "mock", ai: "mock" } }).listen(0);
+    await new Promise((r) => srv.once("listening", r));
+    url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  });
+  afterAll(() => srv.close());
+
+  it("hands the situation and history to the coach, and a reply with no price is a refusal inside the same bargain", async () => {
+    const history = [{ who: "me", text: "Wah, mahal banget! 60 ribu saja, boleh?" }];
+    const r = await send({ theirReply: "ngk ah kemahalan", situation: "sarong di pasar 500 ribu", history });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ intent: "refused", move: "counter", theirReplyEnglish: "No, that is too expensive", final: false });
+    expect(r.body.myOffer).toBeGreaterThan(60000);
+    expect(seen[0]).toMatchObject({ item: "Batik sarong", situation: "sarong di pasar 500 ribu", history, theirReply: "ngk ah kemahalan" });
+  });
+  it("a new counter-offer in words ('gimana kalau 200 ribu') is negotiated, not treated as a new check", async () => {
+    const r = await send({ theirReply: "gimana kalau 200 ribu", theirNumber: 200000, round: 2, myLastOffer: 100000 });
+    expect(r.body).toMatchObject({ intent: "counter", theirNumber: 200000, move: "counter" });
   });
 });

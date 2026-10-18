@@ -24,11 +24,27 @@ describe("Gemini bargaining coach", () => {
     expect(rules).toContain('Use "unclear" rather than guessing');
     expect(rules).toContain("answers by voice in any language");
     expect(rules).toContain("no code, no placeholders, no other writing systems");
-    expect(body.generationConfig.responseJsonSchema.properties.intent.enum).toEqual(["agreed", "refused", "counter", "unclear"]);
+    expect(body.generationConfig.responseJsonSchema.properties.intent.enum).toEqual(["agreed", "refused", "counter", "unclear", "info"]);
     expect(body.generationConfig.responseJsonSchema.required).toContain("intent");
     expect(rules).toContain("Never lower than myLastOffer");
     expect(rules).toContain("The app makes the final decision with strict rules");
     expect(JSON.stringify(body)).not.toContain("secret-test-key"); // the key travels in a header only
+  });
+  it("passes the item, the situation and the whole conversation, and tells Gemini to stay inside this bargain", async () => {
+    const history = [{ who: "me" as const, text: "Wah, mahal banget! 60 ribu saja, boleh?" }, { who: "seller" as const, text: "ngk ah kemahalan" }];
+    const spy = respond({ theirReplyEnglish: "How about 200,000?", intent: "counter", theirNumber: 200000 });
+    await new GeminiBargainCoach("k").coach({ ...req, theirReply: "gimana kalau 200 ribu", situation: "sarong di pasar 500 ribu", history });
+    const body = JSON.parse(spy.mock.calls[0][1]!.body as string);
+    const data = JSON.parse(body.contents[0].parts[0].text.replace("DATA: ", ""));
+    expect(data).toMatchObject({ item: "Batik sarong", situation: "sarong di pasar 500 ribu", history, sellerReply: "gimana kalau 200 ribu" });
+    const rules = body.systemInstruction.parts[0].text as string;
+    expect(rules).toContain("Stay inside THIS bargain");
+    expect(rules).toContain("never as a new purchase");
+    expect(rules).toContain("ngk ah kemahalan");
+    expect(rules).toContain("gimana kalau 200 ribu");
+    expect(rules).toContain("translate what the seller said from Bahasa Indonesia");
+    expect(rules).toContain("never change what was said to fit the situation");
+    expect(rules).toContain("mahal and kemahalan = expensive, too expensive"); // "ngk ah kemahalan" was once translated as "too cheap"
   });
   it("quota, outage and broken replies are plain Errors, so the rules-only answer takes over", async () => {
     for (const status of [429, 503]) {

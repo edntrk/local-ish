@@ -71,3 +71,22 @@ describe("Gemini: where the price used to get lost", () => {
     expect(line).not.toContain("test-key");
   });
 });
+
+describe("price formats: the right number every time, never 0", () => {
+  const read = async (text: string) => {
+    try { return await new MockAskParser().parse({ city: "bali", text }, SEED_PRICES); }
+    catch (e) { if (e instanceof UnknownItemError) return { itemId: "", amount: e.ask.amount }; throw e; }
+  };
+  it.each([
+    ["taksi ke Seminyak 250k", "taxi-city", 250000],
+    ["es teh di pantai 30.000", "tea", 30000],
+    ["massage in Ubud two hundred thousand", "massage", 200000],
+    ["sarong dua ratus lima puluh ribu", "sarong", 250000],
+    ["surfing class in canggu 500000", "surf", 500000],
+    ["sarong di pasar 500 ribu", "sarong", 500000],
+    ["surf lesson 1.2 juta", "surf", 1200000],
+    ["sarong 400,000", "sarong", 400000],
+  ])("%s -> %s %i", async (text, itemId, amount) => {
+    expect(await read(text)).toMatchObject({ itemId, amount });
+  });
+});

@@ -54,7 +54,7 @@ export function createPriceLearner(data: DataStore, researcher: PriceResearcher)
       const found = await researcher.research({ city: q.city, item: q.item, category: q.category, area: q.area });
       const checked = validateResearch(found);
       if (!checked.ok) {
-        console.warn(`[research] ${slug} rejected: ${checked.reason}`);
+        console.error(`[research] ${slug} rejected: ${checked.reason}`);
         return existing ? { item: existing, sources: existing.source ? [existing.source] : [], researched: false } : null;
       }
       // a re-research keeps the old id; a new item that turns out to share a slug with a row is reused by the store
@@ -63,7 +63,7 @@ export function createPriceLearner(data: DataStore, researcher: PriceResearcher)
       // if the store handed back an existing row (same slug), it keeps its own source, not this search's pages
       return { item: stored, sources: fresh ? checked.sources : stored.source ? [stored.source] : [], researched: fresh };
     } catch (e) {
-      console.warn(`[research] ${slug} failed: ${(e as Error).message}`); // the real reason; never the key
+      console.error(`[research] ${slug} failed: ${(e as Error).message}`); // the real reason; never the key
       return existing ? { item: existing, sources: existing.source ? [existing.source] : [], researched: false } : null;
     }
   }

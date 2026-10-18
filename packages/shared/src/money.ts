@@ -76,3 +76,13 @@ export function rupiahAmount(text: string): number | null {
   const r = readAmount(text);
   return r ? (!r.marked && r.value > 0 && r.value < 1000 ? r.value * 1000 : r.value) : null;
 }
+
+/**
+ * "kalau 3 kali les, 1.2 juta" -> 3: how many of the thing a seller's TOTAL covers (lessons, nights, days...).
+ * Only 2 to 20, and only counted things, never people (a price "for 3 people" is not a bundle discount).
+ */
+export function detectQuantity(text: string): number | null {
+  const m = numberWordsToDigits(text).match(/\b(\d{1,2})\s*(?:kali|x|sesi|sessions?|lessons?|les|kelas|classes?|malam|nights?|hari|days?|jam|hours?|pcs|buah|items?)\b/i);
+  const n = m ? Number(m[1]) : NaN;
+  return n >= 2 && n <= 20 ? n : null;
+}

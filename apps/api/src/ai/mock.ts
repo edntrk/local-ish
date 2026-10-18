@@ -2,9 +2,9 @@ import { NUMBER_WORDS, lastAmount, rupiahAmount, type ParsedAsk, type ParseReque
 import type { AskParser } from "../ports";
 
 const KEYS: [string, RegExp][] = [
-  ["taxi-airport", /airport/], ["scooter", /scooter|motorbike|moped/], ["taxi-city", /taxi|cab|ride|grab|gojek/],
-  ["tea", /tea/], ["oj", /juice/], ["water", /water/],
-  ["nasi", /nasi|warung|dinner|lunch|meal|food|restaurant/], ["sim", /\bsim\b|data/], ["sarong", /sarong|batik/], ["carving", /carving|wood/], ["massage", /massage|spa\b/],
+  ["taxi-airport", /airport/], ["scooter", /scooter|motorbike|moped/], ["taxi-city", /taxi|taksi|cab|ride|grab|gojek/],
+  ["surf", /surf|selancar/], ["tea", /\btea|\bteh/], ["oj", /juice/], ["water", /water/],
+  ["nasi", /nasi|warung|dinner|lunch|meal|food|restaurant/], ["sim", /\bsim\b|data/], ["sarong", /sarong|batik/], ["carving", /carving|wood/], ["massage", /massage|spa\b|pijat/],
 ];
 const STYLE: [ParsedAsk["style"], RegExp][] = [["fancy", /fancy|rooftop|hotel|luxury|resort|beach club/], ["mid", /mid|nice|sit.?down|caf[eé]/]];
 

@@ -222,6 +222,9 @@ export const BargainRequest = z
     round: z.number().int().min(1).max(10), // 1 = their first reply to my opening phrase
     language: z.string().default("id-ID"), // language of the phrases
     bargainMode: BargainMode, // "fixed" is refused: there is nothing to bargain
+    // the whole negotiation so far, so a reply is always read as part of THIS bargain (same item, same situation). All of it is data, never instructions.
+    situation: z.string().max(200).optional(), // what the tourist said when they started ("sarong di pasar 500 ribu")
+    history: z.array(z.object({ who: z.enum(["me", "seller"]), text: z.string().max(300) })).max(30).optional(), // oldest first
   })
   .refine((r) => r.plan.openWith <= r.plan.aimFor && r.plan.aimFor <= r.plan.walkAwayAbove, { message: "plan must go openWith <= aimFor <= walkAwayAbove", path: ["plan"] })
   .refine((r) => r.theirReply?.trim() || r.theirNumber !== undefined || r.refused, { message: "send what they said, a number, or refused", path: ["theirReply"] });
@@ -232,7 +235,7 @@ export const BargainMove = z.enum(["accept", "counter", "walk_away", "retry"]);
 export type BargainMove = z.infer<typeof BargainMove>;
 
 /** What the seller meant, as understood from their words. */
-export const BargainIntent = z.enum(["agreed", "refused", "counter", "unclear"]);
+export const BargainIntent = z.enum(["agreed", "refused", "counter", "unclear", "info"]); // info = they told me something about the deal ("price includes the board") without a price or a yes/no
 export type BargainIntent = z.infer<typeof BargainIntent>;
 
 export const BargainResponse = z.object({
@@ -243,9 +246,10 @@ export const BargainResponse = z.object({
   intent: BargainIntent.optional(), // what the seller meant
   myOffer: z.number().optional(), // counter: my next offer. accept: the agreed price
   dealPrice: z.number().optional(), // accept only
-  phrase: z.object({ local: z.string(), english: z.string(), lang: z.string() }).optional(), // counter only
+  phrase: z.object({ local: z.string(), english: z.string(), lang: z.string() }).optional(), // counter: what to say next. walk_away: a polite goodbye
   advice: z.string(), // one short sentence
   alternative: z.string().optional(), // walk_away only: what to do instead ("book a Grab")
+  bundle: z.object({ quantity: z.number(), total: z.number(), perUnit: z.number() }).optional(), // "3 lessons for 1.2 juta": theirNumber is then the price PER lesson
   final: z.boolean(), // true for accept and walk_away: the back-and-forth is over
 });
 export type BargainResponse = z.infer<typeof BargainResponse>;

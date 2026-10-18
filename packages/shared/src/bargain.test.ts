@@ -152,6 +152,8 @@ describe("seller answers by voice: intent first", () => {
   it("without Gemini the words are read roughly: yes, no, a price, or unclear", () => {
     expect(guessIntent("oke boleh")).toBe("agreed");
     expect(guessIntent("tidak, mahal")).toBe("refused");
+    expect(guessIntent("ngk ah kemahalan")).toBe("refused"); // colloquial "no" + "way too expensive"
+    expect(guessIntent("nggak, mahal banget")).toBe("refused");
     expect(guessIntent("tidak bisa, harga pas")).toBe("refused"); // "can't do it": not a yes just because it contains "bisa"
     expect(guessIntent("nggak boleh")).toBe("refused");
     expect(guessIntent("no deal")).toBe("refused");
@@ -211,5 +213,26 @@ describe("walk away: one clean sentence and one alternative, no duplicates", () 
   it("a deal's sentence doesn't repeat the price the page already shows", () => {
     const r = decideBargain(ask({ theirNumber: 180000 }));
     expect(r.advice).not.toMatch(/Rp/);
+  });
+});
+
+describe("a bargain keeps its context", () => {
+  const plan = { openWith: 100000, aimFor: 150000, walkAwayAbove: 250000 };
+  const base = { item: "Batik sarong at a market", category: "shopping" as const, currency: "IDR", range: { min: 50000, max: 150000 }, plan, myLastOffer: 60000, round: 1, language: "id-ID", bargainMode: "bargain" as const };
+  it("accepts the situation and the history, and rejects a history that is too long or has a wrong speaker", () => {
+    const history = [{ who: "me" as const, text: "Wah, mahal banget! 60 ribu saja?" }, { who: "seller" as const, text: "ngk ah kemahalan" }];
+    expect(BargainRequest.parse({ ...base, theirReply: "x", situation: "sarong di pasar 500 ribu", history }).history).toEqual(history);
+    expect(BargainRequest.safeParse({ ...base, theirReply: "x" }).success).toBe(true); // both are optional: older callers keep working
+    expect(BargainRequest.safeParse({ ...base, theirReply: "x", history: Array(31).fill(history[0]) }).success).toBe(false);
+    expect(BargainRequest.safeParse({ ...base, theirReply: "x", history: [{ who: "stranger", text: "hi" }] }).success).toBe(false);
+  });
+  it("without Gemini, a reply with no price is still part of the negotiation: 'ngk ah kemahalan' is a refusal, one small step up", () => {
+    const r = decideBargain(BargainRequest.parse({ ...base, theirReply: "ngk ah kemahalan" }));
+    expect(r).toMatchObject({ intent: "refused", move: "counter", final: false });
+    expect(r.myOffer).toBeGreaterThan(60000);
+  });
+  it("a new counter-offer ('gimana kalau 200 ribu') is handled as their number", () => {
+    const r = decideBargain(BargainRequest.parse({ ...base, theirReply: "gimana kalau 200 ribu", theirNumber: lastAmount("gimana kalau 200 ribu") ?? undefined }));
+    expect(r).toMatchObject({ intent: "counter", theirNumber: 200000, move: "counter" });
   });
 });

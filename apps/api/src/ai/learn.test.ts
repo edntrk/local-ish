@@ -77,7 +77,7 @@ describe("the learner", () => {
     expect(JSON.stringify(r.research.mock.calls)).not.toMatch(/quote|amount|400000/i);
   });
   it("an invalid range is rejected and nothing is saved", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     const data = new MockDataStore();
     const got = await createPriceLearner(data, researcherOf({ ...surf, min: 1000, max: 900000 })).learn(ask);
     expect(got).toBeNull();
@@ -106,13 +106,13 @@ describe("the learner", () => {
     expect(r.research).toHaveBeenCalledTimes(1);
   });
   it("a quota error gives null (the friendly message) and logs the real reason", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     const got = await createPriceLearner(new MockDataStore(), researcherOf(new Error("gemini research 429"))).learn(ask);
     expect(got).toBeNull();
     expect(warn.mock.calls[0][0]).toBe("[research] surf-lesson failed: gemini research 429");
   });
   it("re-researches only after 30 days, and keeps the old numbers if the refresh fails", async () => {
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const days = (n: number) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
     const data = new MockDataStore();
     await data.addPriceItem({ id: "surf-lesson", city: "bali", category: "shopping", name: "Old surf", min: 100000, max: 200000, currency: "IDR", tip: "", source: "https://old.example", checkedOn: days(40), origin: "web" });
