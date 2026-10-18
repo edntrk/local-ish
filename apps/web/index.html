@@ -658,9 +658,11 @@ const SEND='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 const EXAMPLES=['Taxi from the airport to Seminyak at night, he wants 400000','Iced tea at a fancy beach club, 60000','Batik sarong at the market, 300000'];
 const STYLE_KEYS=[['fancy',/fancy|beach.?club|hotel|luxury|villa/],['mid',/mid|nice|sit.?down/]];
 const KEYS=[['taxi-airport',/airport/],['taxi-city',/taxi|cab|ride|grab|gojek/],['tea',/tea|teh/],['oj',/juice/],['water',/water/],['nasi',/nasi|warung|dinner|lunch|meal|food|restaurant/],['massage',/massage|spa\b/],['sim',/sim|data|telkomsel/],['sarong',/sarong|batik|scarf|shirt/],['carving',/carving|mask|wood|souvenir/]];
-function parseAsk(t){t=t.toLowerCase();const nums=t.match(/\d+(\.\d+)?/g);if(!nums)return null;
+// the page's own backup reading of a sentence; prices read the same way as on the server (400,000 / 400.000 / 400k / 400 ribu / four hundred)
+const priceIn=t=>window.fairfareShared.rupiahAmount(t);
+function parseAsk(t){t=t.toLowerCase();const amount=priceIn(t);if(!amount)return null;
   const k=KEYS.find(([,re])=>re.test(t));if(!k)return null;const st=STYLE_KEYS.find(([,re])=>re.test(t));
-  return{itemId:k[0],amount:Number(nums[nums.length-1]),style:st?st[0]:'local'}}
+  return{itemId:k[0],amount,style:st?st[0]:'local'}}
 
 const PHOTO_ENABLED=false; // photo checks are paused: flip to true to bring the camera button back
 
@@ -1149,7 +1151,7 @@ async function sendText(t,from,said){const c=S.check;
   c.err='';c.busy=true;c.busyMsg='';render();
   // a brand-new item can take a few seconds while the API researches local prices
   const slow=setTimeout(()=>{if(c.busy){c.busyMsg='Researching local prices…';render()}},2500);
-  let r=null,api=null,parsed=false,pr=null;
+  let r=null,api=null,parsed=false,pr=null,apiMsg='';
   try{
     pr=await window.fairfareApi.parse({city:'bali',text:t});
     parsed=true;
@@ -1158,15 +1160,16 @@ async function sendText(t,from,said){const c=S.check;
         if(ck.currency==='IDR'){api=ck;learnItem(ck.item)}}catch(e){}
       if(api||item(pr.itemId))r={itemId:pr.itemId,amount:pr.amount,style:pr.style};
     }
-  }catch(e){parsed=false}
+  }catch(e){parsed=false;apiMsg=e.message||''}
   clearTimeout(slow);c.busy=false;c.busyMsg='';
   if(!parsed)r=parseAsk(t);
   if(r){c.style=r.style;return A.check(r.itemId,r.amount,from,said(t),{api,fresh:!!(pr&&pr.researched),sources:pr&&pr.sources})}
   // the API understood it but has no (researched) price: show "no local prices yet", Pay still works
   if(parsed&&pr&&pr.amount>0)return A.check(null,pr.amount,from,said(t),{name:pr.item||t});
-  const nums=t.match(/\d+(\.\d+)?/g);
-  if(nums)return A.check(null,Number(nums[nums.length-1]),from,said(t),{name:t});
-  c.err='Add what it is and the price, like "iced tea at the beach, 30000".';render()}
+  // the server could not help (down, or no price in the sentence): show the price the tourist gave, read the same way, never 0
+  const given=priceIn(t);
+  if(given>0)return A.check(null,given,from,said(t),{name:t});
+  c.err=apiMsg||'Add what it is and the price, like "iced tea at the beach, 30000".';render()}
 function readPhoto(dataUrl){S.check.photo=dataUrl;S.check.style='local';A.check('sarong',300000,'photo','')}
 
 /* light / dark button: starts from the phone's setting, then remembers the choice */

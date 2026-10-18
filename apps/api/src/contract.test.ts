@@ -465,3 +465,12 @@ describe("POST /api/budget-check", () => {
     expect((await ask({ budget: 0 })).status).toBe(400);
   });
 });
+
+describe("POST /api/parse never loses the price of an item with no reference", () => {
+  it.each([["Hotel is 400,000"], ["The hotel was four hundred"], ["hotel 400k"]])("%s -> 200 with the amount and no item id", async (text) => {
+    const r = await call("/api/parse", { method: "POST", body: JSON.stringify({ city: "bali", text }) });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ itemId: "", amount: 400000, currency: "IDR", researched: false });
+    expect(r.body.item.toLowerCase()).toContain("hotel");
+  });
+});

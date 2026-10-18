@@ -92,7 +92,7 @@ describe("Gemini price conversation", () => {
     expect(err).toBeInstanceOf(ParseError);
   });
   it("with the fallback wrapper, a Gemini 429 means the mock parser answers (no 'Gemini is busy' error)", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {}); // a fallback is logged with console.error
     const parser = withFallback<AskParser>("ai", new GeminiAskParser("secret-test-key"), new MockAskParser());
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 429 }));
     const result = await parser.parse({ city: "bali", text: "Taxi from the airport to Seminyak, he wants 400000" }, SEED_PRICES);
@@ -101,7 +101,7 @@ describe("Gemini price conversation", () => {
     expect(warn.mock.calls.flat().join(" ")).not.toContain("secret-test-key");
     // a real "how much?" answer is NOT replaced by the mock
     vi.restoreAllMocks();
-    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     respond({ ...answer, clarification: "How much is the driver asking?", itemId: "", amount: 0, confidence: 0 });
     await expect(parser.parse({ city: "bali", text: "airport taxi" }, SEED_PRICES)).rejects.toThrow("How much is the driver asking?");
   });

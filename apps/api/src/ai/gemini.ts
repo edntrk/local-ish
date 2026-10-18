@@ -1,18 +1,10 @@
 /** Gemini extracts a price check or asks for the missing detail. */
 import { z } from "zod";
-import { CATEGORIES, ParsedAsk, type ParseRequest, type PriceItem } from "@fairfare/shared";
+import { CATEGORIES, ParsedAsk, rupiahAmount, type ParseRequest, type PriceItem } from "@fairfare/shared";
 import type { AskParser } from "../ports";
-import { ParseError } from "./mock";
+import { ParseError, UnknownItemError } from "./mock";
 
-/**
- * Gemini understood the item and the price but we have no reference price for it yet.
- * It is a ParseError on purpose (the fallback must not hide it); the route catches it and researches the item.
- */
-export class UnknownItemError extends ParseError {
-  constructor(public item: string, public category: string | undefined, public ask: Omit<ParsedAsk, "itemId">) {
-    super("We don't have local prices for that yet.");
-  }
-}
+export { UnknownItemError }; // lives in mock.ts so the mock can throw it too; the route and tests import it from here
 
 // Budget extraction stays local to this adapter; the original parse contract is unchanged.
 const ExpenseDraft = z.object({
@@ -49,6 +41,10 @@ Accept input in any language, including mixed languages, accents, informal wordi
 and prices written as words or digits. Read menus, receipts and price tags in their original language.
 Translate expense item names and clarification questions into English. Never ask the user to switch to English.
 Preserve amounts, quantities and currency exactly; translating words is not currency conversion.
+Read numbers the way people write and say them: 400,000 and 400.000 are 400000; 400k, 400rb and 400 ribu are 400000; 1,5 juta is 1500000; number words in English or Bahasa Indonesia count too (four hundred thousand, empat ratus ribu, lima puluh ribu are 400000, 400000 and 50000).
+A bare amount below 1,000 with no unit means thousands of rupiah in Bali: "four hundred" is 400000 and "tea 15" is 15000. Never return amount 0 when the text contains a price.
+A price with no currency is in the default currency below: do not ask which currency, and never ask about another currency unless the tourist names one (USD, AUD, euro, dollar, pound...).
+For a stay (hotel, villa, hostel) the amount is the price the tourist states, per night unless they give a total for several nights. Never ask how many nights or whether it is per night.
 For a menu with several items, ask a short English question about which item to check; do not choose arbitrarily.
 Use conversation context and the latest correction.
 Only match one of these reference items: ${JSON.stringify(prices.map(p => ({ id: p.id, name: p.name })))}.
@@ -65,7 +61,7 @@ For category pick exactly ONE from this fixed list, and never invent a new one. 
 transport (taxi, scooter rental), food (nasi goreng, iced tea), activities (surf lesson, massage, day tour), shopping (batik sarong, souvenirs),
 stay (hotel, villa, hostel), essentials (SIM card, laundry, sunscreen), other (anything that fits none of these).
 Never infer a quantity or total when ambiguous; ask briefly. A receipt total is the expense total.
-Only ask clarification when the expense name, amount, or currency is missing/ambiguous. No long replies.
+Only ask clarification when the item or the amount is missing. If you have both, leave clarification empty, even if you would like more detail. No long replies.
 Greetings should get a friendly question about what they are buying and the quoted price.
 A follow-up like "250" can answer the preceding question. A new explicit item starts a new check.
 Style is local unless an upmarket/rooftop/hotel setting (fancy) or explicit mid-range setting (mid) is stated.
@@ -109,11 +105,29 @@ For incomplete input use itemId "", amount 0 and confidence 0 as placeholders, a
       .map((p: { text?: string }) => p.text ?? "").join("") ?? "";
     let reply: z.infer<typeof Reply>;
     try { reply = Reply.parse(JSON.parse(raw)); }
-    catch { throw new Error("gemini parse: unreadable reply"); }
-    if (reply.clarification.trim()) throw new ParseError(reply.clarification);
-    if (reply.currency !== currency) throw new ParseError(`What is the quoted price in ${currency}?`);
-    if (reply.confidence < 0.5)
-      throw new ParseError("What are you buying, and how much are they asking?");
+    catch { console.error(`[gemini parse] unreadable reply: ${raw.slice(0, 600)}`); throw new Error("gemini parse: unreadable reply"); }
+    const fail = (reason: string, message: string): never => {
+      // the raw reply is logged so a rejected price can be traced back to what Gemini actually said
+      console.error(`[gemini parse] rejected: ${reason}. text=${JSON.stringify((req.text ?? "").slice(0, 120))} raw=${raw.slice(0, 600)}`);
+      throw new ParseError(message);
+    };
+    // our own reading of the typed or spoken text: a safety net for the price, never a replacement for Gemini's item
+    const typed = req.text ? rupiahAmount(req.text) : null;
+    let amount = reply.amount;
+    if (typed && (amount <= 0 || amount * 1000 === typed)) amount = typed; // Gemini returned 0, or read "400,000" as 400
+    const hasItem = !!(reply.itemId || reply.item?.trim());
+    const known = prices.some((p) => p.id === reply.itemId);
+    // Gemini may ask a follow-up even when it has the item and the price (night or total? which currency?). That question must not throw the price away.
+    // A photo can hold several items, so there the question stands.
+    if (reply.clarification.trim()) {
+      if (req.imageBase64 || !hasItem || amount <= 0) fail("clarification", reply.clarification);
+      console.error(`[gemini parse] ignored clarification ${JSON.stringify(reply.clarification)}: item and price are known (item=${reply.item ?? reply.itemId} amount=${amount})`);
+    }
+    // no currency named in the text means the default one, whatever Gemini wrote in that field
+    const named = /\b(usd|aud|eur|gbp|sgd|myr|jpy|dollars?|euros?|pounds?|yen|baht|ringgit)\b|[$€£¥]/i.test(req.text ?? "");
+    if (reply.currency !== currency && (named || req.imageBase64)) fail(`currency ${reply.currency}`, `What is the quoted price in ${currency}?`);
+    if (reply.confidence < 0.5 && (known || amount <= 0 || !hasItem)) fail(`confidence ${reply.confidence}`, "What are you buying, and how much are they asking?");
+    reply = { ...reply, amount, currency };
     return reply;
   }
 

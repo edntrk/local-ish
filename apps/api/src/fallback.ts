@@ -15,7 +15,7 @@ export function withFallback<T extends object>(name: string, real: T, mock: T): 
           return await fn.apply(target, args);
         } catch (err) {
           if (err instanceof ParseError) throw err; // a real "I didn't understand" (or "no price for that yet") is not a failure
-          console.warn(`[fallback] ${name}.${String(prop)} failed, using mock:`, (err as Error).message);
+          console.error(`[fallback] ${name}.${String(prop)} failed, using mock:`, (err as Error).message);
           return (mock as any)[prop](...args);
         }
       };

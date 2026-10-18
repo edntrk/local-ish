@@ -79,7 +79,8 @@ describe("mock parser (Bali)", () => {
     expect(lastAmount("tea 15000 and a snack 40000")).toBe(40000); // no marks: the largest, not the last-listed
     expect(lastAmount("hello")).toBeNull();
   });
-  it("does not guess for items it has no price for", async () => {
-    await expect(parse("Surf lesson, 500000")).rejects.toThrow("Add what it is");
+  it("does not guess an item it has no price for, but keeps the price the tourist gave", async () => {
+    await expect(parse("Surf lesson, 500000")).rejects.toMatchObject({ item: "Surf lesson", ask: { amount: 500000, currency: "IDR" } });
+    await expect(parse("surf lesson")).rejects.toThrow("Add what it is"); // no price at all: still asks
   });
 });
