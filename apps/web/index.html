@@ -3,13 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<!-- INTERFACE role: this is the clickable prototype. Step by step, swap its fake logic for calls in src/api.ts. -->
-</head>
-<body style="margin:0">
+<meta name="theme-color" content="#EBF9CB">
+<meta name="description" content="Know before you pay. Local-ish helps travellers understand unfamiliar prices and split costs with friends.">
 <title>local-ish</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<!-- INTERFACE role: this is the clickable prototype. Step by step, swap its fake logic for calls in src/api.ts. -->
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+</head>
+<body style="margin:0">
 <style>
 /* Layout: one phone-width app column. Palette: lime + black + white (local-ish) */
 :root{
@@ -81,8 +86,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 
 /* onboarding */
 .onb-top{display:flex;justify-content:space-between;align-items:center}
-.brand{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.02em}
-.brand i{font-style:normal;background:var(--lime);color:#0A0A0A;border-radius:9px;padding:0 8px 3px;margin-right:2px}
+.brand-image{display:block;flex:none;width:132px;height:44px;background:url("/local-ish-logo.png") center / 208px 208px no-repeat}
 .progress{height:6px;background:var(--track);border-radius:99px;overflow:hidden}
 .progress i{display:block;height:100%;background:var(--primary);border-radius:99px}
 .choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -596,7 +600,7 @@ function onb(){
     <div id="bc-note" aria-live="polite">${bcNote()}</div>
     ${S.errors.trip?`<p class="err">${S.errors.trip}</p>`:''}
     <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" id="onb-next" data-action="next" ${onb3Ok()&&!S.starting?'':'disabled'}>${S.starting?'Starting…':'Start my trip'}</button></div>`;}
-  return `<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">Step ${s} of 3</span></div>
+  return `<div class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="eyebrow">Step ${s} of 3</span></div>
     <div class="progress"><i style="width:${pct}%"></i></div>${s===1&&S.loadErr?`<p class="err">${esc(S.loadErr)}</p>`:''}${body}`;
 }
 
@@ -631,7 +635,7 @@ function inviteCard(){
   </section>`}
 function homeView(){
   return `
-  <header class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="cur"><i>Rp</i>IDR</span></header>
+  <header class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="cur"><i>Rp</i>IDR</span></header>
   <h1 class="hello"><span>Hello</span> <b>${esc(S.user.name||'there')}</b>!</h1>
   ${S.session?`<button class="link" data-action="switchUser">Not you? Switch</button>`:''}
   ${S.loadErr?`<p class="err">${esc(S.loadErr)}</p>`:''}
@@ -1118,7 +1122,7 @@ async function startJoin(code){
   catch(e){S.join.bad=true;S.join.err=/^Request failed/.test(e.message)?INVITE_ERR:e.message}
   S.join.loading=false;render()}
 function joinView(){
-  const j=S.join,top=`<div class="onb-top"><span class="brand"><i>local</i>-ish</span><span class="eyebrow">You're invited</span></div>`;
+  const j=S.join,top=`<div class="onb-top"><span class="brand-image" role="img" aria-label="local-ish"></span><span class="eyebrow">You're invited</span></div>`;
   if(j.loading)return `${top}<p class="muted">Opening your invite…</p>`;
   if(j.bad)return `${top}<div><h1>Invite link</h1></div><p class="err">${esc(j.err)}</p><button class="btn btn-ghost btn-block" data-action="toStart">Start my own trip</button>`;
   const i=j.info,cur=SYM[i.homeCurrency]?i.homeCurrency:'GBP';
