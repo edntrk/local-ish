@@ -169,14 +169,23 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .fx-amt input:focus-visible{outline:none}
 .fx-amt:focus-within{box-shadow:0 2px 0 var(--lime)}
 .fx-amt output{display:block}
-/* both amounts shrink together so the two currencies always match; the longer the number, the smaller, and the country name gives up room */
-.fx-cards.sm .fx-amt input,.fx-cards.sm .fx-amt output{font-size:21px}
-.fx-cards.sm .fx-pick{max-width:42%}.fx-cards.sm .fx-sym{font-size:18px}
-.fx-cards.xs .fx-amt input,.fx-cards.xs .fx-amt output{font-size:19px}
-.fx-cards.xs .fx-pick{max-width:36%}.fx-cards.xs .fx-sym{font-size:15px}
-.fx-cards.xxs .fx-amt input,.fx-cards.xxs .fx-amt output{font-size:15px}
-.fx-cards.xxs .fx-pick{max-width:32%}.fx-cards.xxs .fx-sym{font-size:13px}
-.fx-cards.xxs .fx-pick b{font-size:15px}
+.fx-amt output .k{font-size:.5em;font-weight:600;opacity:.65;margin-left:1px;letter-spacing:0}
+/* rupiah card: the Rp sign and the big number keep their size, only the trailing ",000" is small. The country name gives up room first;
+   a very long number scales down just enough to fit (--n = how many characters it has) */
+.fx-card.to{container-type:inline-size}
+.fx-card.to .fx-pick{flex:1 1 0;max-width:none;min-width:50px}
+.fx-card.to .fx-amt{flex:none}
+.fx-card.to .fx-amt output{flex:none;width:auto;white-space:nowrap;font-size:min(36px,calc((100cqw - 112px) / (var(--n,5) * .6 + 1.2)))}
+/* each amount shrinks on its own, by how long ITS number is (a short £200 stays big while a long rupiah number gets smaller); the country name gives up room */
+.fx-card.m .fx-amt input,.fx-card.m .fx-amt output{font-size:30px}
+.fx-card.m .fx-pick{max-width:52%}
+.fx-card.sm .fx-amt input,.fx-card.sm .fx-amt output{font-size:23px}
+.fx-card.sm .fx-pick{max-width:46%}.fx-card.sm .fx-sym{font-size:20px}
+.fx-card.xs .fx-amt input,.fx-card.xs .fx-amt output{font-size:20px}
+.fx-card.xs .fx-pick{max-width:40%}.fx-card.xs .fx-sym{font-size:16px}
+.fx-card.xxs .fx-amt input,.fx-card.xxs .fx-amt output{font-size:16px}
+.fx-card.xxs .fx-pick{max-width:34%}.fx-card.xxs .fx-sym{font-size:14px}
+.fx-card.xxs .fx-pick b{font-size:15px}
 .fx-sub{display:flex;justify-content:space-between;gap:10px;font-size:14px;color:var(--ink-muted)}
 .fx-swap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:46px;height:46px;border-radius:50%;background:#fff;color:#0E0E0E;display:grid;place-items:center;box-shadow:0 0 0 4px var(--bg)}
 .fx-swap svg{width:22px;height:22px}
@@ -484,13 +493,19 @@ function syncOnb(){
     const n=$('#onb-next');if(n)n.disabled=!onb1Ok()}
   if(S.step===6){const b=$('#j-go');if(b)b.disabled=S.join.busy||!S.join.name.trim()}
   if(S.step===3){const bi=$('#f-budget');if(bi)bi.style.width=(bi.value.length+.5)+'ch'; // hugs the digits so the currency sign stays next to them
-    const o=$('#fx-out');if(o)o.textContent=fmtNum(destAmt(),dest().cur);
-    const fc=$('.fx-cards');if(fc)fc.className='fx-cards '+fxSize()
+    const o=$('#fx-out');if(o){o.innerHTML=fxOut();o.style.setProperty('--n',fxN())}
+    const ff=$('.fx-card.from'),ft=$('.fx-card.to');if(ff)ff.className='fx-card from '+fxFromSize();if(ft)ft.className='fx-card to '+fxToSize()
     const d=$('#fx-day');if(d)d.textContent='≈ '+fmtNum(destAmt()/days(),dest().cur)+' '+dest().cur+' a day'
     const e=$('#fx-each');if(e)e.textContent=eachTxt();
     const n=$('#onb-next');if(n)n.disabled=!onb3Ok()}}
 // the home and destination amounts always share one size: both shrink when either gets long
-const fxSize=()=>{const n=Math.max(fmtNum(Number(S.trip.budget)||0,home()).length,fmtNum(destAmt(),dest().cur).length);return n>=13?'xxs':n>=10?'xs':n>=8?'sm':''};
+// Rupiah are always thought of in thousands, so the big number is the thousands and the trailing ",000" is small (Rp 4,300 + ,000)
+const idrK=()=>Math.round(destAmt()/1000);
+const fxOut=()=>dest().cur==='IDR'&&idrK()>0?`${idrK().toLocaleString('en-GB')}<span class="k">,000</span>`:fmtNum(destAmt(),dest().cur);
+const fxTier=n=>n>=11?'xxs':n>=9?'xs':n>=7?'sm':n>=6?'m':'';
+const fxFromSize=()=>fxTier(String(Math.round(Number(S.trip.budget)||0)).length+2); // the home-currency amount you type
+const fxToSize=()=>''; // the local amount no longer uses size steps: see .fx-card.to in the CSS
+const fxN=()=>dest().cur==='IDR'&&idrK()>0?idrK().toLocaleString('en-GB').length:fmtNum(destAmt(),dest().cur).length; // characters in the big part of the local amount
 const budgetLabel=()=>isGroup()?'Total trip budget for your group':'Your trip budget';
 const eachTxt=()=>`≈ ${symTxt(home())}${fmtNum(perPersonHome(),home())} each for ${members()} people`;
 const loc=n=>'Rp'+Math.round(n).toLocaleString('en-GB');
@@ -587,12 +602,12 @@ function onb(){
         <ul class="friends">${S.trip.friends.map((f,i)=>`<li><span>${esc(f.name)}</span><button class="x" data-action="rmFriend" data-i="${i}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')||'<li class="muted">Add at least one friend</li>'}</ul>
       </div>`:''}
     <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Next</button></div>`;
-  if(s===3){const d=dest(),c=cty(),cur=home(),t=fmtNum(destAmt(),d.cur); body=`
+  if(s===3){const d=dest(),c=cty(),cur=home(),t=fxOut(); body=`
     <div><h1>Where are you going?</h1><p class="muted" style="margin-top:6px">Pick a country and we'll show your budget in local money.</p></div>
     <div class="fx">
       <p class="fx-rate">${TREND}<span id="fx-rate">${rateLine()}</span></p>
-      <div class="fx-cards ${fxSize()}">
-        <div class="fx-card from">
+      <div class="fx-cards">
+        <div class="fx-card from ${fxFromSize()}">
           <div class="fx-row">
             ${fxPick(c.flag,c.name,'user.country','Your home country',COUNTRIES.map(x=>`<option value="${x.code}" ${x.code===c.code?'selected':''}>${x.name}</option>`).join(''))}
             <div class="fx-amt"><span class="fx-sym">${SYM[cur]}</span><input id="f-budget" type="number" inputmode="decimal" min="1" data-bind="trip.budget" value="${esc(S.trip.budget)}" placeholder="0" style="width:${Math.max(1,String(S.trip.budget).length)+.5}ch" aria-label="${budgetLabel()} in ${cur}"></div>
@@ -601,10 +616,10 @@ function onb(){
           ${isGroup()?`<div class="fx-sub"><span id="fx-each">${eachTxt()}</span></div>`:''}
         </div>
         <span class="fx-swap" aria-hidden="true">${DOWN}</span>
-        <div class="fx-card to">
+        <div class="fx-card to ${fxToSize()}">
           <div class="fx-row">
             ${fxPick(d.flag,d.short,'trip.dest','Where you are going',DESTS.map((x,i)=>`<option value="${i}" ${i==S.trip.dest?'selected':''}>${x.name}</option>`).join(''))}
-            <div class="fx-amt"><span class="fx-sym">${SYM[d.cur]}</span><output id="fx-out">${t}</output></div>
+            <div class="fx-amt"><span class="fx-sym">${SYM[d.cur]}</span><output id="fx-out" style="--n:${fxN()}">${t}</output></div>
           </div>
           <div class="fx-sub"><span>${d.curName}</span><span id="fx-day">≈ ${fmtNum(destAmt()/days(),d.cur)} ${d.cur} a day</span></div>
         </div>
