@@ -121,7 +121,7 @@ export function createApp({ data, voice, ai, advisor, learner, coach, budgetExpl
     try {
       res.json(applyAdvice(result, await advisor.advise(result, { city: trip.city, amount: body.amount, style: body.style, situation: body.situation })));
     } catch (err) {
-      console.warn("[fallback] advice failed, using template:", (err as Error).message);
+      console.error("[fallback] advice failed, using template:", (err as Error).message);
       res.json(result);
     }
   }));
@@ -139,7 +139,7 @@ export function createApp({ data, voice, ai, advisor, learner, coach, budgetExpl
     try {
       draft = await budgetExplainer?.explain({ city: body.city, status: numbers.status, currency: local, days: numbers.days, style: body.style, perDay: numbers.perDay, typicalPerDay: numbers.typicalPerDay, shortfall: numbers.shortfall });
     } catch (err) {
-      console.warn("[fallback] budget words failed, using template:", (err as Error).message);
+      console.error("[fallback] budget words failed, using template:", (err as Error).message);
     }
     res.json(budgetResult(numbers, local, applyBudgetNote(draft, numbers.status))); // no draft or an unclean one = the template
   }));
@@ -152,7 +152,7 @@ export function createApp({ data, voice, ai, advisor, learner, coach, budgetExpl
     // Gemini reads the reply; if it fails, the same rules still answer (halfway between my last offer and their number)
     let draft;
     try { draft = coach ? await coach.coach(body) : undefined; }
-    catch (err) { console.warn(`[bargain] gemini failed: ${(err as Error).message}`); }
+    catch (err) { console.error(`[bargain] gemini failed: ${(err as Error).message}`); }
     res.json(decideBargain(body, draft));
   }));
 

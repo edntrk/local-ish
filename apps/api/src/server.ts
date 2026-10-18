@@ -14,7 +14,7 @@ import { GeminiBargainCoach } from "./ai/gemini-bargain";
 import { GeminiBudgetExplainer } from "./ai/gemini-budget";
 import type { AdviceWriter, AskParser, BargainCoach, BudgetExplainer, DataStore, PriceLearner, VoiceService } from "./ports";
 
-const warn = (m: string) => console.warn("⚠️  " + m);
+const warn = (m: string) => console.error("⚠️  " + m); // console.error so a fall back to a mock shows up in the host logs (Render)
 
 let data: DataStore = new MockDataStore();
 let dataMode: string = "mock";
@@ -43,7 +43,7 @@ if (config.aiMode === "gemini") {
   else warn("AI_MODE=gemini but GEMINI_API_KEY is empty. Using mock AI.");
 }
 
-void data.init?.().catch((e) => console.warn("[data] setup failed:", (e as Error).message)); // e.g. add new columns; safe to re-run
+void data.init?.().catch((e) => console.error("[data] setup failed:", (e as Error).message)); // e.g. add new columns; safe to re-run
 createApp({ data, voice, ai, advisor, learner, coach, budgetExplainer, modes: { data: dataMode, voice: voiceMode, ai: aiMode }, corsOrigins: config.corsOrigins }).listen(config.port, () => {
   console.log(`FairFare API on http://localhost:${config.port}  ·  data=${dataMode}  voice=${voiceMode}  ai=${aiMode}`);
 });
