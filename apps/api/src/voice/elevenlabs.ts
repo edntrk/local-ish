@@ -29,16 +29,26 @@ export class ElevenLabsVoice implements VoiceService {
     return res;
   }
 
-  async speechToText(audio: Buffer, mimeType: string): Promise<string> {
+  async speechToText(audio: Buffer, mimeType: string, languages?: string[]): Promise<string> {
     const mime = mimeType.split(";")[0].trim().toLowerCase();
     const extension = EXTENSIONS[mime];
     if (!Buffer.isBuffer(audio) || !audio.length) throw new ParseError("Record a short message first.");
     if (audio.length > 10 * 1024 * 1024) throw new ParseError("That recording is too large. Please record a shorter message.");
     if (!extension) throw new ParseError("Please use a WebM, MP4, Ogg, MP3 or WAV recording.");
+    // No languages given: let ElevenLabs detect it (browser recordings may mix languages).
+    // Languages given: try each in order and keep the first that hears words, so "id" first and "en" as the fallback.
+    let lastError: unknown = new ParseError("I couldn't hear clear speech. Try again or type your expense.");
+    for (const lang of languages?.length ? languages : [undefined]) {
+      try { return await this.transcribe(audio, mime, extension, lang); } catch (e) { lastError = e; }
+    }
+    throw lastError;
+  }
+
+  private async transcribe(audio: Buffer, mime: string, extension: string, language?: string): Promise<string> {
     const form = new FormData();
     form.append("model_id", "scribe_v2");
     form.append("tag_audio_events", "false");
-    // Let ElevenLabs detect the language; browser recordings may mix languages.
+    if (language) form.append("language_code", language);
     form.append("file", new Blob([new Uint8Array(audio)], { type: mime }), `speech.${extension}`);
     const res = await this.request("/speech-to-text", { method: "POST", body: form });
     const data = await res.json().catch(() => null);

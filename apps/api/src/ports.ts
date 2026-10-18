@@ -33,7 +33,8 @@ export interface DataStore {
 
 /** VOICE role (ElevenLabs) */
 export interface VoiceService {
-  speechToText(audio: Buffer, mimeType: string): Promise<string>;
+  /** `languages` (e.g. ["id","en"]) pins the languages to try, in order; leave it out to auto-detect */
+  speechToText(audio: Buffer, mimeType: string, languages?: string[]): Promise<string>;
   /** returns audio bytes (mp3) */
   textToSpeech(text: string, lang: string): Promise<{ audio: Buffer; mimeType: string }>;
 }

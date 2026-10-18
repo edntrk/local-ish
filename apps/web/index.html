@@ -23,6 +23,8 @@
   --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --body:"Figtree", "Segoe UI", system-ui, sans-serif;
   --r:20px;
+  --bubble-me:color-mix(in srgb,var(--lime) 35%,var(--surface));
+  --blue-grey:color-mix(in srgb,var(--c3) 45%,var(--muted));
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#0B0B0B; --surface:#161616; --surface-2:#222222; --fg:#F4F8E8; --muted:#A3AA96; --line:#2A2A2A;
@@ -123,7 +125,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .stats dd{margin:2px 0 0;font-weight:700;font-variant-numeric:tabular-nums;font-size:14px}
 .tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .tips li{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
-.tips .dot{width:34px;height:34px;border-radius:12px;background:var(--lime);color:#0A0A0A;display:grid;place-items:center;font-weight:800;color:var(--fg);font-size:13px}
+.tips .dot{width:34px;height:34px;border-radius:12px;background:var(--lime);color:#0A0A0A;display:grid;place-items:center;font-weight:800;font-size:13px}
 .link{background:none;border:0;color:var(--primary);font-weight:700;padding:0}
 
 /* onboarding: country picker. The real <select> sits on top so the phone's own list still opens */
@@ -172,7 +174,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .status.ok{background:var(--lime);color:#0A0A0A}
 .when{align-self:flex-start;font-weight:700;font-size:14px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 12px;font-variant-numeric:tabular-nums}
 /* money tiles */
-.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.ess summary{list-style:none;display:flex;justify-content:space-between;align-items:center;pointer-events:none} /* always open */
 .ess summary::-webkit-details-marker{display:none}
 .ess .more-tag{font-size:13px;font-weight:700;color:var(--primary)}
 .ess[open] .more-tag{display:none}
@@ -183,16 +185,17 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .tile .bar{display:block}
 .tile .val{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.1;font-variant-numeric:tabular-nums}
 .t-cur{font-family:var(--display);font-weight:800;font-size:16px;color:var(--muted);margin-top:2px}
-.t-amt{font-family:var(--display);font-weight:800;font-size:clamp(22px,7vw,30px);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:-6px;overflow-wrap:anywhere}
+.t-amt{font-family:var(--display);font-weight:800;font-size:clamp(18px,5.6vw,26px);line-height:1.05;font-variant-numeric:tabular-nums;margin-top:-6px;white-space:nowrap}
+.money.solo .t-amt{font-size:clamp(26px,8vw,34px)}
 .t-gbp{font-size:15px;font-weight:500}
 .t-panel{display:flex;flex-direction:column;gap:2px;background:var(--surface-2);border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px;margin-top:4px}
 .t-panel small{font-size:12px;font-weight:500;color:var(--muted)}
-.tile.group{background:var(--ink);border-color:var(--ink);color:#fff}
-.tile.group .eyebrow{color:#A5A5A5}
-.tile.group .t-cur,.tile.group .t-amt{color:var(--lime)}
-.tile.group .t-panel{background:rgba(255,255,255,.2)}
-.tile.group .t-panel small{color:#D4D4D4}
-.tile.group .more{color:var(--lime)}
+.tile.me,.tile.group{background:var(--ink);border-color:var(--ink);color:#fff}
+.tile.me .eyebrow,.tile.group .eyebrow{color:#A5A5A5}
+.tile.me .t-cur,.tile.me .t-amt,.tile.group .t-cur,.tile.group .t-amt{color:var(--lime)}
+.tile.me .t-panel,.tile.group .t-panel{background:rgba(255,255,255,.2)}
+.tile.me .t-panel small,.tile.group .t-panel small{color:#D4D4D4}
+.tile.me .more,.tile.group .more{color:var(--lime)}
 .tile.me .bar i{background:var(--primary)}
 .tile .more{font-size:13px;font-weight:700;color:var(--primary);margin-top:auto}
 /* chat-style check */
@@ -207,7 +210,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .pills{display:flex;gap:6px;flex-wrap:wrap}
 .pills button{border:1.5px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:13px;font-weight:600}
 .pills button[aria-pressed="true"]{background:var(--lime);color:#0E0E0E;border-color:var(--lime)}
-.you-said{align-self:flex-end;background:var(--surface-2);padding:8px 12px;border-radius:14px 14px 4px 14px;max-width:85%;font-weight:500;display:flex;flex-direction:column;gap:6px}
+.you-said{align-self:flex-end;background:var(--bubble-me);padding:8px 12px;border-radius:16px 16px 4px 16px;max-width:85%;font-weight:500;display:flex;flex-direction:column;gap:6px}
 .you-said img{max-height:90px;border-radius:8px;align-self:flex-end}
 .q{font-weight:700}
 .actions3{display:flex;gap:8px}
@@ -242,7 +245,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .chat{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding-right:10px;overscroll-behavior:contain;scrollbar-width:thin}
 .check-body .askbar{flex:none}
 .modes button[aria-pressed="true"]{background:var(--on-primary);color:var(--primary)}
-.sub{display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+.sub{display:flex;flex-direction:column;gap:12px;background:var(--surface);border:1.5px solid var(--line);border-radius:16px;padding:14px;width:92%;align-self:center}
 /* check */
 .back{display:flex;align-items:center;gap:6px}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
@@ -263,11 +266,21 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .drop img{max-height:140px;border-radius:10px}
 .demo{font-size:12px;color:var(--muted);background:var(--surface-2);border-radius:8px;padding:8px 10px}
 
-.verdict{border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:8px}
-.v-great,.v-fair{background:var(--good-bg)} .v-high{background:var(--warn-bg)} .v-tooHigh{background:var(--bad-bg)}
-.pill{align-self:flex-start;font-weight:800;font-size:13px;padding:5px 11px;border-radius:999px;color:var(--surface)}
-.v-great .pill,.v-fair .pill{background:var(--good)} .v-high .pill{background:var(--warn)} .v-tooHigh .pill{background:var(--bad)}
-.range{position:relative;height:12px;border-radius:99px;background:var(--surface);margin:10px 0 18px}
+.verdict{border-radius:16px;padding:10px 14px 12px;display:flex;flex-direction:column;gap:2px;width:84%;align-self:center}
+.verdict .big{font-size:24px}
+.verdict .tip{margin-top:4px}
+.note{align-self:flex-start;font-size:13px}
+.v-great{background:color-mix(in srgb,var(--c3) 16%,var(--surface))} .v-fair{background:color-mix(in srgb,var(--blue-grey) 16%,var(--surface))}
+.v-high{background:var(--warn-bg)} .v-tooHigh{background:var(--bad-bg)} .v-unknown{background:var(--surface-2)}
+.pill{align-self:flex-end;font-weight:800;font-size:13px;padding:4px 11px;border-radius:999px;color:var(--surface)}
+.v-great .pill{background:var(--c3)} .v-fair .pill{background:var(--blue-grey)} .v-high .pill{background:var(--warn)} .v-tooHigh .pill{background:var(--bad)} .v-unknown .pill{background:var(--c7)}
+.verdict .vcur{font-family:var(--display);font-weight:800;font-size:12px;margin-top:-8px}
+.verdict .gbp{font-weight:600}
+.verdict .vline{font-size:13px;color:var(--muted);font-weight:500}
+.verdict .src{margin-top:2px}
+.vbtns{display:flex;gap:6px;margin-top:8px}
+.vbtns .btn{flex:1;padding:7px 6px;font-size:13px;background:var(--primary);color:var(--on-primary)}
+.range{position:relative;height:12px;border-radius:99px;background:var(--surface);margin:10px 0 8px}
 .range .ok{position:absolute;top:0;bottom:0;background:var(--good);opacity:.35;border-radius:99px}
 .range .you{position:absolute;top:-5px;width:4px;height:22px;background:var(--fg);border-radius:3px;transform:translateX(-50%)}
 .range .lbl{position:absolute;top:22px;font-size:11px;color:var(--muted);transform:translateX(-50%);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -276,15 +289,23 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .src .status{margin:0 4px 0 0}
 .bargain-chat{display:flex;flex-direction:column;gap:10px}
 .rounds{display:flex;flex-direction:column;gap:8px}
-.turn{max-width:88%;padding:8px 12px;font-weight:500;display:flex;flex-direction:column;gap:4px}
-.turn p{margin:0}
-.turn small{color:var(--muted);font-weight:500}
-.turn.me{align-self:flex-end;background:var(--surface-2);border-radius:14px 14px 4px 14px}
-.turn.them{align-self:flex-start;background:var(--surface);border:1.5px solid var(--line);border-radius:14px 14px 14px 4px}
+.turn{max-width:84%;padding:10px 12px;border:1.5px solid transparent;border-radius:16px;display:flex;flex-direction:column;gap:4px} /* one bubble for both sides; only colour and side differ */
+.turn p{margin:0;font-size:15px;font-weight:700;line-height:1.35}
+.turn small{font-size:13px;font-weight:500;color:var(--muted)}
+.turn.me{align-self:flex-end;background:var(--bubble-me);border-color:var(--bubble-me)}
+.turn.them{align-self:flex-start;background:var(--surface);border-color:var(--line)}
+.turn.me small{color:color-mix(in srgb,var(--fg) 65%,transparent)}
+.turn .plays{display:flex;gap:6px;flex-wrap:wrap}
+.bargain-chat .eyebrow,.bargain-chat .hint,.bargain-chat .link{align-self:center;text-align:center}
+.chat .walk{width:84%;align-self:center;padding:10px 14px}
 .big-mic{min-height:64px;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px}
 .btn.on{animation:pulse 1s ease-in-out infinite}
 @media (prefers-reduced-motion: reduce){.btn.on{animation:none}}
-.turn .play{align-self:flex-start;padding:4px 10px;font-size:13px}
+.turn .play{padding:4px 12px;font-size:13px}
+.chat .say{width:92%;align-self:center;border-radius:16px}
+.chat .actions3{width:92%;align-self:center}
+.chat .actions3 .btn{background:var(--primary);color:var(--on-primary);box-shadow:none}
+.chat .q{align-self:center}
 .deal{background:var(--good-bg);border-radius:14px;padding:12px 14px}
 .deal .big,.walk p{margin:0}
 .walk{background:var(--bad-bg);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
@@ -304,6 +325,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size
 .legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:14px;min-width:0}
 .legend li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center}
 .legend i{width:10px;height:10px;border-radius:3px}
+.legend .zero{color:var(--muted)}
 .cat-amt{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
 .cat-amt small{font-size:12px;color:var(--muted)}
 .list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
@@ -340,6 +362,7 @@ button:not(:disabled):active,.icon-btn:active,.fx-pick:active{transform:translat
 .hello b{font-family:var(--display);font-weight:800}
 /* skip link + debug page switcher */
 .skip{align-self:center;text-decoration:underline;text-underline-offset:3px}
+#dbg[hidden]{display:none}
 #dbg{position:fixed;left:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;display:flex;align-items:center;gap:4px;background:var(--ink);color:var(--ink-fg);border:1px solid var(--ink-line);border-radius:999px;padding:4px;font-size:12px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 #theme{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom, 0px));z-index:7;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--fg);background:var(--surface);color:var(--fg);display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 #theme svg{width:22px;height:22px}
@@ -513,19 +536,10 @@ function onb(){
     </div>
     ${S.trip.mode==='group'?`
       <div class="stack">
-        <h3>Invite your friends</h3>
-        <div class="invite">
-          <p class="hint">Send this link. Anyone who opens it joins your trip and the group pot.</p>
-          ${inviteLink()?`<div class="link-row"><code id="inv-link">${esc(inviteLink())}</code><button class="btn btn-primary" data-action="copyLink">Copy link</button></div>`
-            :S.inviteErr?`<p class="hint">We couldn't get your link just now. It will be on your home screen once your trip starts.</p>`
-            :`<p class="hint">Getting your link…</p>`}
-        </div>
-        <div class="stack" style="gap:6px"><span style="font-weight:600;font-size:14px">Or invite by email</span>
-          <div class="add-row"><input id="f-friend" type="email" aria-label="Friend's email" class="txt" placeholder="friend@email.com" data-bind="trip.newFriend" value="${esc(S.trip.newFriend)}"><button class="btn btn-ghost" data-action="addFriend">Send invite</button></div>
-          ${S.errors.friend?'<p class="err">Enter a full email address, like bella@gmail.com.</p>':''}
-        </div>
-        <ul class="friends">${S.trip.friends.map((f,i)=>`<li><span>${esc(f.name)} <span class="status">Invited</span></span><button class="x" data-action="rmFriend" data-i="${i}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')||'<li class="muted">No one invited yet</li>'}</ul>
-        <p class="demo">Demo: no email is sent. Emails you add are listed as invited. Send your friends the link above.</p>
+        <h3>Who's travelling with you?</h3>
+        <div class="add-row"><input id="f-friend" type="text" aria-label="Friend's name" class="txt" placeholder="Friend's name" maxlength="40" autocomplete="off" data-bind="trip.newFriend" value="${esc(S.trip.newFriend)}"><button class="btn btn-ghost" data-action="addFriend">Add</button></div>
+        ${S.errors.friend?'<p class="err">Type your friend\'s name first.</p>':''}
+        <ul class="friends">${S.trip.friends.map((f,i)=>`<li><span>${esc(f.name)}</span><button class="x" data-action="rmFriend" data-i="${i}" aria-label="Remove ${esc(f.name)}">Remove</button></li>`).join('')||'<li class="muted">Add at least one friend</li>'}</ul>
       </div>`:''}
     <div class="row"><button class="btn btn-ghost" data-action="prev">Back</button><button class="btn btn-primary" data-action="next">Next</button></div>`;
   if(s===3){const d=dest(),c=cty(),cur=home(),t=fmtNum(destAmt(),d.cur); body=`
@@ -575,9 +589,10 @@ function welcomeView(){return `<section class="welcome" data-action="enterHome" 
 
 /* ---------- home: everything happens on this one screen ---------- */
 // the real invite link for this trip, with Copy; email invites are demo-only and show the same link
+const FEATURES={invites:false}; // the invite link, email invites and join screen are built but hidden: flip to true to bring them back
 const inviteLink=()=>{const c=T()?T().inviteCode:S.inviteCode;return c?`${location.origin}/join/${c}`:''}; // before the trip exists the code comes from /api/invite-codes
 function inviteCard(){
-  if(!T())return '';
+  if(!FEATURES.invites||!T())return '';
   return `<section class="card invite-card">
     <h3>Invite friends</h3>
     <div class="invite">
@@ -605,8 +620,8 @@ function homeView(){
   </section>
   ${budgetFrames()}
   ${inviteCard()}
-  <details class="card ess">
-    <summary><h2>Local essentials</h2><span class="more-tag">Tap to open</span></summary>
+  <details class="card ess" open>
+    <summary><span class="eyebrow">Local essentials</span></summary>
     <ul class="tips">
       <li><span class="dot">SIM</span><div><b>Get a local SIM at the airport</b><p class="muted">Official shops only. About Rp100,000–200,000 with data.</p></div></li>
       <li><span class="dot">Taxi</span><div><b>Use Grab or Gojek</b><p class="muted">Or agree the fare first and ask for the meter (argo).</p></div></li>
@@ -627,11 +642,15 @@ const PHOTO_ENABLED=false; // photo checks are paused: flip to true to bring the
 
 function checkBody(){
   const c=S.check;
+  // while bargaining, the bottom box is where the seller's answer goes (typed or spoken); otherwise it is the price check box
+  // once a price card is on screen, whatever is typed or spoken here is the seller's answer, never a new check (Pay or Leave it ends the chat)
+  const sell=!!(c.result&&item(c.result.itemId)&&c.step!=='pay'&&calc(c.result).mode!=='fixed'),who=sell?'seller':'check';
+  const val=sell?c.bgInput:c.text,off=c.hearing||c.busy||(sell&&c.bg&&c.bg.busy),on=c.listening&&micTarget===who;
   const bar=`<div class="askbar">
       ${PHOTO_ENABLED?`<label class="icon-btn" for="photoIn" title="Add a photo of the price" aria-label="Add a photo of the price">${ICON.photo}</label>`:''}
-      <input id="c-ask" data-bind="check.text" value="${esc(c.text)}" placeholder="${c.listening&&micTarget==='check'?'Listening…':c.hearing?'Processing…':c.busy?'Checking…':'e.g. taxi to Seminyak, 400000'}" aria-label="What are you paying for, and how much?" autocomplete="off" ${c.busy?'disabled':''}>
-      <button class="icon-btn ${c.listening&&micTarget==='check'?'on':''}" data-action="listen" aria-label="${c.listening&&micTarget==='check'?'Stop recording':'Say it'}" aria-pressed="${c.listening&&micTarget==='check'}" ${c.hearing||c.busy?'disabled':''}>${ICON.voice}</button>
-      <button class="icon-btn send" id="c-send" data-action="send" aria-label="Check this price" ${c.text.trim()?'':'hidden'}>${SEND}</button>
+      <input id="${sell?'bg-in':'c-ask'}" data-bind="${sell?'check.bgInput':'check.text'}" value="${esc(val)}" placeholder="${on?'Listening…':c.hearing&&micTarget===who?'Processing…':c.busy?'Checking…':sell?'What did they say?':'e.g. taxi to Seminyak, 400000'}" aria-label="${sell?'What did they say?':'What are you paying for, and how much?'}" autocomplete="off" ${c.busy||(sell&&c.bg&&c.bg.busy)?'disabled':''}>
+      <button class="icon-btn ${on?'on':''}" data-action="listen" data-mic="${who}" aria-label="${on?'Stop recording':sell?'Let them answer':'Say it'}" aria-pressed="${on}" ${off&&!on?'disabled':''}>${ICON.voice}</button>
+      <button class="icon-btn send" id="${sell?'bg-send':'c-send'}" data-action="${sell?'bgSend':'send'}" aria-label="${sell?'Send what they said':'Check this price'}" ${val.trim()?'':'hidden'}>${SEND}</button>
     </div>
     ${PHOTO_ENABLED?'<input id="photoIn" type="file" accept="image/*" hidden>':''}`;
   const err=c.err?`<p class="err">${c.err}</p>`:'';
@@ -675,77 +694,62 @@ const payForm=()=>{const c=S.check;return `<div class="sub">
       ${isGroup()?splitView():''}
       <button class="btn btn-primary btn-block" data-action="save" ${c.saving?'disabled':''}>${c.saving?'Saving…':'Save to budget'}</button></div>`};
 
+// one small alert card per price in the chat: pill (top right), small IDR, amount, ≈ home, "usual a–b". Buttons only on the latest card.
+const VERDICT={great:['great deal','✓'],fair:['fair price','≈'],high:['a bit high','!'],tooHigh:['too high','✕'],unknown:['no local price','?']};
+function verdictCard(v,a,line,extra,buttons){
+  const [t,m]=VERDICT[v];
+  return `<div class="verdict v-${v}" aria-live="polite">
+    <span class="pill">${t} ${m}</span>
+    <span class="vcur">IDR</span>
+    <p class="big">${Math.round(a).toLocaleString('en-GB')}</p>
+    <p class="gbp">≈ ${fmtHome(a/RATES[home()])}</p>
+    ${line?`<p class="vline">${line}</p>`:''}${extra}${buttons?`<div class="vbtns">${buttons}</div>`:''}</div>`}
+const vbtn=(label,attrs)=>`<button class="btn" ${attrs}>${label}</button>`;
+const payBtn=price=>vbtn('Pay',`data-action="choose" data-next="pay" data-price="${Math.round(price)}"`);
+const leaveBtn=()=>vbtn('Leave it','data-action="choose" data-next="leave"');
+// the seller's Play reads the ENGLISH line aloud, so I can hear what they said
+const sellerBubble=(text,english)=>{const en=english&&english!==text?english:'';return `<div class="turn them"><p>${esc(text)}</p>${en?`<small>${esc(en)}</small>`:''}<div class="plays">${playBtn(en||text,'en-GB','Play')}</div></div>`};
+const playBtn=(text,lang,label)=>`<button class="btn btn-ghost play" data-action="speak" data-lang="${esc(lang||'id-ID')}" data-text="${esc(text)}">▶ ${label}</button>`;
+const meBubble=(local,english,lang)=>`<div class="turn me"><p>${esc(local)}</p><small>${esc(english)}</small><div class="plays">${playBtn(local,lang,'Play')}</div></div>`;
+
 function unknownView(){
   const c=S.check,r=c.result,a=r.amount;
-  const next=c.step==='pay'?payForm():`<p class="q">What do you want to do?</p>
-    <div class="actions3">
-      <button class="btn btn-primary" data-action="choose" data-next="pay">Pay</button>
-      <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
-    </div>`;
-  return `<p class="you-said">${esc(r.said)}</p>
-  <div class="verdict v-fair" aria-live="polite">
-    <p class="big">${both(a)}</p>
-    <p>We don't have local prices for that yet.</p>
-    <p class="hint" style="color:var(--fg)">You can still log it so your budget stays right.</p>
-  </div>
-  ${next}`}
+  const btns=c.step==='choose'?payBtn(a)+leaveBtn():'';
+  return `<p class="turn them first-said">${esc(r.said)}</p>
+  ${verdictCard('unknown',a,"We don't have local prices for that yet",'',btns)}
+  ${c.step==='pay'?payForm():''}`}
 
+// the chat, top to bottom: seller's quote (left), alert card, my phrase (right), seller's reply (left), new card, ...
 function resultView(){
   const r=S.check.result;if(!item(r.itemId))return unknownView();
-  const {c,p,a,v,mn,mx,target,plan,ph,mode,tips,alt,askPh,advice}=calc(r), who=STYLES[c.style].who;
-  const label={great:'Great deal',fair:'Fair price',high:'A bit high',tooHigh:'Too high'}[v];
-  const hi=Math.max(a,mx)*1.15, pos=x=>Math.min(100,Math.max(0,x/hi*100));
-  const bargainable=(v==='high'||v==='tooHigh')&&mode==='bargain'; // plan chips and the Bargain button are for bargain places only
-  const msg=advice||(mode==='bargain'?{great:`${who} ${rangeTxt(mn,mx)}. You're paying less.`,fair:`${who} ${rangeTxt(mn,mx)}. This is normal.`,
-    high:'',tooHigh:''}[v]:window.fairfareShared.templateAdvice(mode,v)); // bargain + high: the Start / Aim / Walk away numbers say it
-  const planHtml=bargainable?`<ul class="plan" aria-label="Bargaining plan"><li><small>Start</small><b>${kTxt(plan.openWith)}</b></li><li><small>Aim</small><b>${kTxt(plan.aimFor)}</b></li><li><small>Walk away</small><b>${kTxt(plan.walkAwayAbove)}+</b></li></ul>`:'';
-  const indo=ph.local, polite=ph.polite;
-  // where the price came from: our own list, or the web (with tappable sources: domain name only, new tab)
+  const k=calc(r),{c,p,a,v,mn,mx,mode,ph,askPh,alt}=k,bg=c.bg;
+  const verdictAt=x=>x<=mx?(x<mn?'great':'fair'):x<=mx*1.3?'high':'tooHigh';
+  const bargainable=(v==='high'||v==='tooHigh')&&mode==='bargain';
+  const usual=`usual ${kTxt(mn)}–${kTxt(mx)}`;
+  // at most one tip, specific to this item, and never the same item as the "cheaper" suggestion
+  const alt2=alt&&alt.name!==p.name?alt:null,generic=(k.tips||[])[0]||'';
+  const tip=mode==='fixed'&&alt2?`Cheaper nearby: ${alt2.name}, usually ${rangeTxt(alt2.min,alt2.max)}`:(p.tip||generic);
   const web=r.api&&r.api.source==='web',links=(r.fresh&&r.sources&&r.sources.length?r.sources:(r.api&&r.api.sources)||[]).slice(0,3);
-  const srcHtml=`<p class="src">${mode==='fixed'?'<span class="status">Fixed-price place</span> ':''}${web?(r.fresh?'🌐 Researched just now':'🌐 Researched from the web'):'Local data'}${web&&links.length?' · '+links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · '):''}</p>`;
+  const extra=(tip?`<p class="vline tip">💡 ${esc(tip)}</p>`:'')+(web&&links.length?`<p class="src">🌐 ${links.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(domainOf(u))}</a>`).join(' · ')}</p>`:'');
   const said=r.from==='photo'?`${c.photo?`<img src="${c.photo}" alt="">`:''}Photo: ${p.name}, ${loc(a)}`:esc(r.said);
-  let next='';
-  if(c.step==='choose'||c.step==='bargain') next=`
-    ${c.step==='bargain'?`<div class="say">
-      <p class="eyebrow">Say this</p>
-      <p class="phrase">${indo}</p>
-      <p class="muted">"${esc(ph.english)}"</p>
-      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(indo)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button>
-        <button class="btn btn-ghost" data-action="speak" data-lang="id-ID" data-text="${esc(polite)}">Polite version</button></div>
-      ${c.realVoice?'':`<p class="demo">Demo uses your device's voice. The real app uses ElevenLabs.</p>`}
-      ${mode==='bargain'?bgView(mode):''}</div>`:''}
-    ${c.step==='choose'&&mode==='ask'&&v!=='great'?`<div class="say">
-      <p class="eyebrow">Ask politely</p>
-      <p class="phrase">${esc(askPh.local)}</p>
-      <p class="muted">"${esc(askPh.english)}"</p>
-      <div class="row"><button class="btn btn-primary" data-action="speak" data-lang="id-ID" data-text="${esc(askPh.local)}">${ICON.voice.replace('<svg','<svg width="18" height="18"')}Bahasa Indonesia</button></div>
-      ${bgView('ask')}</div>`:''}
-    ${c.step==='choose'&&mode==='fixed'?`<div class="say">
-      <p class="eyebrow">Good to know</p>
-      <ul class="tiplist">${tips.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>
-      ${alt?`<p class="muted">Cheaper nearby: ${esc(alt.name)}, usually ${rangeTxt(alt.min,alt.max)}</p>`:''}</div>`:''}
-    <p class="q">${c.step==='bargain'?'Did it work?':'What do you want to do?'}</p>
-    <div class="actions3">
-      ${c.step==='choose'&&bargainable?`<button class="btn btn-ghost" data-action="choose" data-next="bargain">Bargain</button>`:''}
-      ${c.bg&&c.bg.done&&c.bg.done.type==='walk'?'':`<button class="btn btn-primary" data-action="choose" data-next="pay">Pay</button>`}
-      <button class="btn btn-ghost" data-action="choose" data-next="leave">Leave it</button>
-    </div>`;
-  if(c.step==='pay') next=payForm();
-  return `
-  <p class="you-said">${said}</p>
-  <div class="verdict v-${v}" aria-live="polite">
-    <span class="pill">${label}</span>
-    <p class="big">${both(a)}</p>
-    ${srcHtml}
-    ${msg?`<p>${msg}</p>`:''}
-    <div class="range" aria-hidden="true">
-      <span class="ok" style="left:${pos(mn)}%;width:${pos(mx)-pos(mn)}%"></span>
-      <span class="you" style="left:${pos(a)}%"></span>
-      <span class="lbl" style="left:${pos((mn+mx)/2)}%">usual ${kTxt(mn)}–${kTxt(mx)}</span>
-    </div>
-    ${planHtml}
-  </div>
-  ${next}`;
+  const askOk=mode==='ask'&&v!=='great';
+  const items=[{html:()=>`<p class="turn them first-said">${said}</p>`},
+    {card:1,html:b=>verdictCard(v,a,usual,extra,b),btns:()=>(bargainable||askOk?vbtn(mode==='ask'?'Ask':'Bargain','data-action="choose" data-next="bargain"'):'')+payBtn(a)+leaveBtn()}];
+  if(bg&&bg.started){
+    const first=mode==='ask'?askPh:ph;
+    items.push({html:()=>meBubble(first.local,first.english,first.lang||'id-ID')});
+    bg.turns.forEach(t=>{
+      if(t.who==='you'){items.push({html:()=>meBubble(t.local,t.english,t.lang)});return}
+      items.push({html:()=>sellerBubble(t.text,t.english)});
+      const cd=t.card;if(!cd)return;
+      if(cd.kind==='walk')items.push({card:1,html:b=>`<div class="walk"><p>${esc(cd.advice)}</p>${cd.alt?`<p class="muted">${esc(cd.alt)}</p>`:''}${b?`<div class="vbtns">${b}</div>`:''}</div>`,btns:leaveBtn});
+      else items.push({card:1,html:b=>verdictCard(verdictAt(cd.price),cd.price,usual,'',b),btns:()=>(cd.kind==='counter'&&!cd.used?vbtn('Bargain','data-action="counter"'):'')+payBtn(cd.price)+leaveBtn()});
+    });
+    if(bg.busy)items.push({html:()=>'<p class="muted note" role="status">Thinking…</p>'});
+    else if(bg.note&&!bg.done)items.push({html:()=>`<p class="muted note" role="status">${esc(bg.note)}</p>`});
+  }
+  const last=items[items.length-1],live=last.card&&c.step!=='pay';
+  return items.map(it=>it===last&&live?it.html(it.btns()):it.html('')).join('')+(c.step==='pay'?payForm():'');
 }
 
 const TICK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -773,7 +777,7 @@ function pie(entries){
   if(!tot) return `<p class="muted">Nothing spent yet. Check a price and tap "Yes, I paid" to add one.</p>`;
   let acc=0; const stops=entries.filter(([,v])=>v>0).map(([k,v])=>{const s=acc/tot*360;acc+=v;return `${CATS[k].color} ${s}deg ${acc/tot*360}deg`}).join(',');
   return `<div class="pie-wrap"><div class="pie" style="background:conic-gradient(${stops})" role="img" aria-label="Spending by category"></div>
-    <ul class="legend">${entries.filter(([,v])=>v>0).map(([k,v])=>`<li><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><span class="cat-amt"><b class="num">${loc(v)}</b><small>${Math.round(v/tot*100)}%</small></span></li>`).join('')}</ul></div>`;
+    <ul class="legend">${entries.map(([k,v])=>`<li class="${v>0?'':'zero'}"><i style="background:${CATS[k].color}"></i><span>${CATS[k].label}</span><span class="cat-amt"><b class="num">${v>0?loc(v):'–'}</b><small>${v>0?Math.round(v/tot*100)+'%':''}</small></span></li>`).join('')}</ul></div>`;
 }
 function budgetFrames(){
   const open=S.open, sm=S.summary, me=myId();
@@ -836,10 +840,11 @@ let welcomeT;
 // Debug switcher: remove this and the #dbg div when the prototype is done.
 // Pages 2+ need a home country, so fill the blanks with sample values when jumping past page 1.
 function ensureDefaults(){if(!cty()){S.user.country='GB';S.user.home='GBP'}}
-function dbg(){const d=$('#dbg');d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
+const DEBUG=/[?&]debug\b/.test(location.search); // the page-switcher bar only shows with ?debug in the address
+function dbg(){const d=$('#dbg');if(!DEBUG){d.hidden=true;return}d.innerHTML=`<button data-action="dbgGo" data-d="-1" aria-label="Previous page" ${S.step<=1?'disabled':''}>‹</button><span>Debug · ${S.step}/5 ${STEP_NAMES[S.step-1]}</span><button data-action="dbgGo" data-d="1" aria-label="Next page" ${S.step>=5?'disabled':''}>›</button><button data-action="reset" aria-label="Reset everything">Reset</button>`}
 function render(scroll){
   if(S.step>=2)ensureDefaults();
-  if(S.step===2&&!S.inviteCode&&!S.inviteTried&&!T()){S.inviteTried=true;window.fairfareApi.reserveInviteCode().then(c=>{S.inviteCode=c.code;if(S.step===2)render()},()=>{S.inviteErr=true;if(S.step===2)render()})}
+  if(FEATURES.invites&&S.step===2&&!S.inviteCode&&!S.inviteTried&&!T()){S.inviteTried=true;window.fairfareApi.reserveInviteCode().then(c=>{S.inviteCode=c.code;if(S.step===2)render()},()=>{S.inviteErr=true;if(S.step===2)render()})}
   dbg();
   clearTimeout(welcomeT);
   const oldChat=$('.chat'), keep=oldChat?oldChat.scrollTop:0;
@@ -848,7 +853,7 @@ function render(scroll){
   $('#app').innerHTML = S.step===6?joinView():S.step<=3?onb():S.step===4?welcomeView():homeView();
   const chat=$('.chat'); // keep the chat where it was, unless something new arrived
   if(chat){const sc=S.check.scroll;S.check.scroll=null;
-    if(sc==='new'){const y=chat.querySelector('.you-said');chat.scrollTop=y?y.offsetTop-chat.offsetTop:0}
+    if(sc==='new'){const y=chat.querySelector('.first-said');chat.scrollTop=y?y.offsetTop-chat.offsetTop:0}
     else if(sc==='end')chat.scrollTop=chat.scrollHeight;
     else chat.scrollTop=keep}
   if(scroll) window.scrollTo(0,0);
@@ -878,8 +883,8 @@ const A={
     render(true);toast('Starting fresh')},
   dbgGo(t){S.step=Math.min(5,Math.max(1,S.step+Number(t.dataset.d)));S.errors={};render(true)},
   mode(t){S.trip.mode=t.dataset.mode;render()},
-  addFriend(){const e=S.trip.newFriend.trim();S.errors.friend=0;
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){S.errors.friend=1}else{const nm=e.split('@')[0];S.trip.friends.push({name:nm.charAt(0).toUpperCase()+nm.slice(1),email:e,status:'Invited'});S.trip.newFriend='';toast('Invite sent to '+e)}
+  addFriend(){const nm=S.trip.newFriend.trim().replace(/\s+/g,' ');S.errors.friend=0;
+    if(!nm)S.errors.friend=1;else{S.trip.friends.push({name:nm,status:'joined'});S.trip.newFriend=''}
     render();const f=$('#f-friend');f&&f.focus()},
   copyLink(){const t=inviteLink();if(!t)return;
     const sel=()=>{const el=$('#inv-link');const r=document.createRange();r.selectNodeContents(el);const w=getSelection();w.removeAllRanges();w.addRange(r);toast('Link selected. Copy it to share')};
@@ -916,8 +921,9 @@ const A={
     rec.start(3000);recTimer=setTimeout(stopRec,30000);if(target==='check')startPreview()
   },
   choose(t){const c=S.check,n=t.dataset.next;
-    if(n==='leave'){c.result=null;c.step=null;c.photo=null;render();toast('Okay, nothing was saved');return}
-    if(n==='pay'){const on={};people().forEach(p=>on[p.key]=true);c.split={mode:'equal',on,custom:{}};c.paidBy=myId()}
+    if(n==='leave'){c.result=null;c.step=null;c.photo=null;c.bg=null;c.bgInput='';render();toast('Okay, nothing was saved');return}
+    if(n==='bargain')bgOf().started=true;
+    if(n==='pay'){if(t.dataset.price)c.paidAmt=Number(t.dataset.price);const on={};people().forEach(p=>on[p.key]=true);c.split={mode:'equal',on,custom:{}};c.paidBy=myId()}
     c.step=n;c.scroll='end';render()},
   tick(t){const sp=S.check.split;sp.on[t.dataset.p]=!sp.on[t.dataset.p];render()},
   // saves one expense to the API (everyone on the trip sees it), then refreshes the money boxes
@@ -936,7 +942,7 @@ const A={
     c.saving=true;render();
     try{
       await window.fairfareApi.addExpense(S.session.tripId,{item:p.name,category:c.paidCat,amount:amt,paidBy:isGroup()?c.paidBy||myId():myId(),shares});
-      c.saving=false;c.result=null;c.step=null;c.photo=null;
+      c.saving=false;c.result=null;c.step=null;c.photo=null;c.bg=null;c.bgInput='';
       await loadTrip({force:true});render();scrollToEl('#budget');toast('Saved to the trip')
     }catch(e){c.saving=false;c.err=e.message||"Couldn't save that. Try again.";render()}},
   // api.speak tries ElevenLabs first and falls back to the device voice on its own
@@ -956,50 +962,33 @@ let micTarget='check'; // where the recording's words are going: 'check' (the bo
 /* ---------- bargaining back-and-forth: "What did they say?" ---------- */
 const syncBgSend=()=>{const b=$('#bg-send');if(b)b.hidden=!S.check.bgInput.trim()};
 // the back-and-forth for this check; my first offer is the phrase shown above it
-const bgOf=()=>S.check.bg||(S.check.bg={turns:[],myLast:calc(S.check.result).plan.openWith,round:0,refusedBefore:0,done:null,busy:false});
-function bgView(mode){
-  const c=S.check;
-  const bg=bgOf(),max=mode==='ask'?1:window.fairfareShared.MAX_ROUNDS;
-  const rec=c.listening&&micTarget==='seller',hearing=c.hearing&&micTarget==='seller';
-  const turns=bg.turns.map(t=>t.who==='you'
-    ?`<div class="turn me"><p>${esc(t.local)}</p><small>${esc(t.english)}</small><button class="btn btn-ghost play" data-action="speak" data-lang="${esc(t.lang||'id-ID')}" data-text="${esc(t.local)}">▶ Play</button></div>`
-    :`<div class="turn them"><p>${esc(t.text)}</p>${t.english&&t.english!==t.text?`<small>${esc(t.english)}</small>`:''}</div>`).join('');
-  // one clean sentence + one alternative: the alternative is left out if the sentence already says it
-  const alt=bg.done&&bg.done.alt&&!bg.done.advice.toLowerCase().includes(bg.done.alt.toLowerCase().replace(/[.!?]+$/,''))?bg.done.alt:'';
-  const end=!bg.done?'':bg.done.type==='deal'
-    ?`<div class="deal"><p class="big">Deal at ${loc(bg.done.price)} 🎉</p>${bg.done.advice?`<p class="muted">${esc(bg.done.advice)}</p>`:''}</div>`
-    :`<div class="walk"><p>${esc(bg.done.advice)}</p>${alt?`<p class="muted">${esc(alt)}</p>`:''}</div>`;
-  // the seller answers into the phone: one big button. Typing their reply is only a backup.
-  const controls=bg.done?'':`<p class="eyebrow">What did they say?</p>
-      <button class="btn btn-primary btn-block big-mic ${rec?'on':''}" data-action="listen" data-mic="seller" aria-pressed="${rec}" ${(c.hearing||bg.busy)&&!rec?'disabled':''}>${ICON.voice.replace('<svg','<svg width="22" height="22"')}${rec?"Listening… tap when they're done":hearing?'Understanding…':'Let them answer'}</button>
-      ${!bg.turns.length&&!rec?'<p class="hint">Hand them the phone, let them answer, then tap again.</p>':''}
-      <button class="link" data-action="bgType">${bg.typing?'Hide typing':'Type their reply'}</button>
-      ${bg.typing?`<div class="askbar">
-        <input id="bg-in" data-bind="check.bgInput" value="${esc(c.bgInput)}" placeholder="Their offer: 300000, 300k or 300 ribu" aria-label="What did they say?" autocomplete="off" ${bg.busy?'disabled':''}>
-        <button class="icon-btn send" id="bg-send" data-action="bgSend" aria-label="Send what they said" ${c.bgInput.trim()?'':'hidden'}>${SEND}</button>
-      </div>`:''}
-      <p class="hint">${mode==='ask'?'One reply, then you decide.':`Round ${bg.round+1} of ${max}`}</p>`;
-  return `<div class="bargain-chat">${turns?`<div class="rounds">${turns}</div>`:''}${bg.busy?'<p class="muted" role="status">Thinking…</p>':''}${bg.note&&!bg.done?`<p class="muted" role="status">${esc(bg.note)}</p>`:''}${end}${controls}</div>`}
+const bgOf=()=>S.check.bg||(S.check.bg={started:false,turns:[],myLast:calc(S.check.result).plan.openWith,round:0,refusedBefore:0,done:null,busy:false});
 // one step: send what they said to /api/bargain (the rules in packages/shared decide; if the API is down the same rules run here)
 async function bgStep(extra,themText){
   const c=S.check,bg=bgOf(),k=calc(c.result);
-  if(bg.busy||bg.done)return;
+  if(bg.done)return toast('Tap Pay or Leave it to carry on');
+  if(bg.busy)return;
+  bg.started=true;if(c.step==='choose')c.step='bargain';
   const req={item:k.p.name,category:k.p.cat,currency:'IDR',range:{min:k.mn,max:k.mx},plan:k.plan,myLastOffer:bg.myLast,round:bg.round+1,refusedBefore:bg.refusedBefore,language:'id-ID',bargainMode:k.mode,...extra};
-  const them={who:'them',text:themText};bg.turns.push(them);bg.busy=true;bg.note='';c.err='';render();
+  const them={who:'them',text:themText};bg.turns.push(them);bg.busy=true;bg.note='';c.err='';c.scroll='end';render();
   let out;
   try{out=await window.fairfareApi.bargain(req)}
   catch(e){const sh=window.fairfareShared;out=sh.decideBargain(sh.BargainRequest.parse(req))}
   bg.busy=false;
   if(out.theirReplyEnglish)them.english=out.theirReplyEnglish;
   // "didn't catch that": their words stay in the chat, but it is not a round and nothing changes
-  if(out.move==='retry'){bg.note=out.advice;render();return}
+  if(out.move==='retry'){bg.note=out.advice;c.scroll='end';render();return}
   bg.round++;
   if(out.intent==='refused'&&out.theirNumber===undefined)bg.refusedBefore++;
-  if(out.move==='counter'){bg.myLast=out.myOffer;bg.turns.push({who:'you',local:out.phrase.local,english:out.phrase.english,lang:out.phrase.lang})}
-  else if(out.move==='accept'){bg.done={type:'deal',price:out.dealPrice,advice:out.advice};c.paidAmt=out.dealPrice} // Pay is pre-filled with the agreed price
-  else bg.done={type:'walk',advice:out.advice,alt:out.alternative};
-  render()}
-const bgNote=msg=>{bgOf().note=msg;render()};
+  const price=out.theirNumber||(extra&&extra.theirNumber);
+  if(out.move==='counter'){
+    const mine={who:'you',local:out.phrase.local,english:out.phrase.english,lang:out.phrase.lang};
+    // they named a price: show its card, my counter waits for the Bargain button. They only refused: nothing to decide, my counter goes straight in.
+    if(price)them.card={kind:'counter',price,mine,offer:out.myOffer};else{bg.myLast=out.myOffer;bg.turns.push(mine)}}
+  else if(out.move==='accept'){bg.done={type:'deal'};them.card={kind:'deal',price:out.dealPrice}}
+  else{bg.done={type:'walk'};them.card={kind:'walk',advice:out.advice,alt:out.alternative}}
+  c.scroll='end';render()}
+const bgNote=msg=>{bgOf().note=msg;S.check.scroll='end';render()};
 // what the seller said into the phone, any language: speech-to-text, then the same step as a typed reply
 function sellerSaid(text){
   const t=(text||'').trim();
@@ -1007,7 +996,9 @@ function sellerSaid(text){
   const n=window.fairfareShared.lastAmount(t);
   return bgStep({theirReply:t,...(n?{theirNumber:n}:{})},t)}
 Object.assign(A,{
-  bgType(){const bg=bgOf();bg.typing=!bg.typing;render();const el=$('#bg-in');el&&el.focus()},
+  // the Bargain button on a seller's price card: my counter goes into the chat
+  counter(){const c=S.check,bg=bgOf(),t=bg.turns.slice().reverse().find(x=>x.card&&x.card.kind==='counter'&&!x.card.used);if(!t)return;
+    t.card.used=true;bg.myLast=t.card.offer;bg.turns.push(t.card.mine);c.scroll='end';render()},
   bgSend(){const c=S.check,text=c.bgInput.trim();if(!text||bgOf().busy)return;const n=window.fairfareShared.lastAmount(text);c.bgInput='';return bgStep({theirReply:text,...(n?{theirNumber:n}:{})},text)},
 });
 const MIC_TYPES=['audio/webm','audio/mp4','audio/ogg']; // first one this browser can record
@@ -1029,7 +1020,7 @@ async function finishRec(stream,chunks,type,target){
   const c=S.check;clearTimeout(recTimer);stopPreview();stream.getTracks().forEach(k=>k.stop());rec=null;
   c.listening=false;c.hearing=true;render();
   try{
-    const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}))).trim():'';
+    const text=chunks.length?(await window.fairfareApi.speechToText(new Blob(chunks,{type}),target==='seller'?['id','en']:undefined)).trim():'';
     c.hearing=false;
     if(target==='seller'){c.hearing=false;return sellerSaid(text)} // hand-the-phone answer: straight into the chat
     if(!text){c.text='';return micFail('No clear speech was heard. Try again or type it.')}
@@ -1041,10 +1032,10 @@ async function finishRec(stream,chunks,type,target){
 // The server makes the person ids; the creator is the person marked isMe.
 function tripPayload(){
   const friends=isGroup()?S.trip.friends:[],total=Number(S.trip.budget)||0;
-  return{city:'bali',currency:'IDR',homeCurrency:home(),rateToLocal:RATES[home()],...(S.inviteCode?{inviteCode:S.inviteCode}:{}), // the same code the link on step 2 already showed
+  return{city:'bali',currency:'IDR',homeCurrency:home(),rateToLocal:RATES[home()],...(FEATURES.invites&&S.inviteCode?{inviteCode:S.inviteCode}:{}), // the same code the link on step 2 already showed
     budgetHome:total/members(),groupBudgetHome:total,start:S.trip.start,end:S.trip.end,
     people:[{id:'me',name:S.user.name.trim()||'Me',isMe:true,status:'joined',...(emailOk(S.user.email)?{email:S.user.email.trim()}:{})}]
-      .concat(friends.map((f,i)=>({id:'f'+i,name:f.name,isMe:false,status:'invited',...(emailOk(f.email||'')?{email:f.email}:{})})))}}
+      .concat(friends.map((f,i)=>({id:'f'+i,name:f.name,isMe:false,status:'joined',...(emailOk(f.email||'')?{email:f.email}:{})})))}}
 
 /* ---------- session, routing, shared data ---------- */
 const SESSION_KEY='localish:session';
@@ -1192,7 +1183,9 @@ document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.bind)return
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='f-friend'){e.preventDefault();A.addFriend()}if(e.key==='Enter'&&e.target.id==='c-ask'){e.preventDefault();A.send()}if(e.key==='Enter'&&e.target.id==='bg-in'){e.preventDefault();A.bgSend()}});
 document.addEventListener('change',e=>{if(e.target.id==='p-amt')render();if(e.target.id==='photoIn'&&e.target.files[0]){const r=new FileReader();r.onload=()=>readPhoto(r.result);r.readAsDataURL(e.target.files[0])}});
 // open the right screen for the address: an invite, a saved trip, or the start of onboarding
-(function boot(){
+// the module script above sets window.fairfareApi after this one starts, so wait for it before opening a saved trip
+(async function boot(){
+  for(let i=0;i<200&&!(window.fairfareApi&&window.fairfareShared);i++)await new Promise(r=>setTimeout(r,25));
   const join=location.pathname.match(/^\/join\/([^/]+)/);
   S.session=readSession();
   if(join)return startJoin(decodeURIComponent(join[1]));

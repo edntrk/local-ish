@@ -140,7 +140,9 @@ export function createApp({ data, voice, ai, advisor, learner, coach, modes }: D
 
   /* ----- voice ----- */
   app.post("/api/voice/stt", express.raw({ type: "audio/*", limit: "10mb" }), h(async (req, res) => {
-    const text = await voice.speechToText(req.body as Buffer, req.get("content-type") ?? "audio/webm");
+    // ?lang=id,en: the seller's answer is Indonesian or English, so don't let the service guess some other language
+    const languages = String(req.query.lang ?? "").split(",").map((l) => l.trim().toLowerCase()).filter((l) => /^[a-z]{2,3}$/.test(l)).slice(0, 3);
+    const text = await voice.speechToText(req.body as Buffer, req.get("content-type") ?? "audio/webm", languages.length ? languages : undefined);
     res.json({ text });
   }));
   app.post("/api/voice/tts", h(async (req, res) => {

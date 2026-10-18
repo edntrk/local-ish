@@ -48,10 +48,10 @@ export const api = {
   summary: (tripId: string, personId?: string) => req<Summary>(`/trips/${tripId}/summary${personId ? `?personId=${encodeURIComponent(personId)}` : ""}`),
 
   /** returns text heard in the recording */
-  speechToText: async (audio: Blob) => {
+  speechToText: async (audio: Blob, languages?: string[]) => {
     // "audio/webm;codecs=opus" -> "audio/webm": the server only wants the plain type
     const type = (audio.type || "audio/webm").split(";")[0].trim();
-    const res = await fetch("/api/voice/stt", { method: "POST", headers: { "content-type": type }, body: audio });
+    const res = await fetch(`/api/voice/stt${languages?.length ? `?lang=${languages.join(",")}` : ""}`, { method: "POST", headers: { "content-type": type }, body: audio });
     if (!res.ok) throw new Error("Couldn't hear that. Try again or type it.");
     return ((await res.json()) as { text: string }).text;
   },

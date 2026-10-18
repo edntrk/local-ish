@@ -5,5 +5,5 @@ import { defineConfig } from "vite";
 // When we deploy, the web server needs the same rule: any path that isn't /api/* or a real file serves index.html.
 export default defineConfig({
   appType: "spa",
-  server: { port: 5173, proxy: { "/api": "http://localhost:8787" } },
+  server: { port: 5173, proxy: { "/api": process.env.API_URL ?? "http://localhost:8787" } },
 });
