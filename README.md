@@ -149,3 +149,8 @@ Keep credentials private. **Never commit `.env`.**
 - [AI flow](docs/AI_FLOW.md): How a sentence becomes a verdict, advice and a spoken phrase.
 - [API contract](docs/CONTRACT.md): Every API endpoint with examples.
 - [Development workflow](docs/WORKFLOW.md): Git, branches and pull requests.
+
+## 🏆 Hackathon achievements
+
+- **4th place out of 40 teams** in the WISE main track at the IKU Womxn in STEM Hackathon.
+- **Best Use of ElevenLabs** award.
